@@ -1,0 +1,136 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+     app: {{ .Chart.Name }}
+spec:
+  serviceName: {{ .Values.serviceName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        # Since fsGroup is specified, all processes of the container are also part of the
+        # supplementary group ID. The owner for volumes and any files created in the volume will
+        # be Group ID 1000, which is archive.
+        fsGroup: 1000
+      ## serviceAccountName defines the name of the service account the
+      ## pods are running under. Normally that is 'default'
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      containers:
+      - name: {{ .Chart.Name }}
+{{- if not (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ required "A valid image.source is required!" .Values.image.source }}/{{ required "A valid image.name is required!" .Values.image.name }}:{{ required "A valid image.tag is required!" .Values.image.tag }}
+{{- else }}
+        image: {{ required "A valid image.source is required!" .Values.image.source }}{{ required "A valid image.name is required!" .Values.image.name }}:{{ required "A valid image.tag is required!" .Values.image.tag }}
+{{- end }}
+{{- if .Values.image.pullPolicy }}
+        imagePullPolicy: {{ required "A valid image.pullPolicy is required!" .Values.image.pullPolicy }}
+{{- end }}
+        ports:
+        - containerPort: 8080
+        envFrom:
+          - configMapRef:
+              name: {{ .Chart.Name }}-configmap
+        env:
+          - name: BA_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                {{- if .Values.existingSecret }}
+                name: {{ .Values.existingSecret }}
+                {{- else }}
+                name: {{ .Chart.Name }}-ba-password
+                {{- end }}
+                key: BA_PASSWORD
+          - name: CONNECTOR_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                {{- if .Values.existingSecret }}
+                name: {{ .Values.existingSecret }}
+                {{- else }}
+                name: {{ .Chart.Name }}-connector-password
+                {{- end }}
+                key: CONNECTOR_PASSWORD
+{{- if eq .Values.readinessProbe.enabled true }}
+        readinessProbe:
+          exec:
+            command:
+              - /acc/java/bin/java
+              - -jar
+              - /acc/prog/lib/healthcheck/acc-healthcheck.jar
+              - readiness
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+{{- end }}
+{{- if eq .Values.livenessProbe.enabled true }}
+        livenessProbe:
+          exec:
+            command:
+              - /acc/java/bin/java
+              - -jar
+              - /acc/prog/lib/healthcheck/acc-healthcheck.jar
+              - liveness
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+{{- end }}
+{{- if eq .Values.resources.enabled true }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+{{- end }}
+        volumeMounts:
+        - mountPath: /acc/config
+          name: {{ .Chart.Name }}-config
+        - mountPath: /acc/logs
+          name: {{ .Chart.Name }}-logs
+{{- if .Values.connector.hostname }}
+      hostname: {{ .Values.connector.hostname }}
+{{- end }}
+      restartPolicy: Always
+      volumes:
+      - name: {{ .Chart.Name }}-config
+        persistentVolumeClaim:
+          claimName: {{ .Chart.Name}}-config
+      - name: {{ .Chart.Name}}-logs
+        persistentVolumeClaim:
+          claimName: {{ .Chart.Name}}-logs
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ .Chart.Name }}-config
+    spec:
+      accessModes:
+        - ReadWriteOnce
+{{- if .Values.resources.storageClassName }}
+      storageClassName: {{ .Values.resources.storageClassName | quote }}
+{{- end }}
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: {{ .Chart.Name }}-logs
+    spec:
+      accessModes:
+        - ReadWriteOnce
+{{- if .Values.resources.storageClassName }}
+      storageClassName: {{ .Values.resources.storageClassName | quote }}
+{{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.resources.logStorage | quote }}

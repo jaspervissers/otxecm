@@ -1,0 +1,26 @@
+{{- if and .Values.migration.enabled .Values.migration.preUpgradeJob.enabled }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ template "otdsws.name" . }}-migrate-job-yaml
+
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded    
+data:
+  migrate-job.yaml: |-    
+    {{ tpl (.Files.Get "job/migrate-job.yaml") . | b64enc }}
+
+  migrate-job-configmap.yaml: |-    
+    {{ tpl (.Files.Get "job/migrate-job-configmap.yaml") . | b64enc }}
+
+  migrate-job-secrets.yaml: |-    
+    {{ tpl (.Files.Get "job/migrate-job-secrets.yaml") . | b64enc }}    
+    
+{{- end -}}

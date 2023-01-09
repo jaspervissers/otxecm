@@ -1,0 +1,55 @@
+{{- if and .Values.otcs (not .Values.global.otdsMigration) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: otiv-delete-cs-vat-job
+  labels:
+    app.kubernetes.io/name: {{ include "brava.name" . }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      name: otiv-delete-cs-vat-job
+      {{- if .Values.global.usingServiceMesh }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "brava.name" . }}
+        helm.sh/chart: {{ include "brava.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      restartPolicy: Never
+      serviceAccountName: otiv-job-sa
+    {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.imagePullSecret }}
+    {{- end }}
+      containers:
+      - name: delete-vat
+        image: {{ include "otds.init.image.path" . }}
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - bash
+        args: [ "-c",
+                "sleep 4;
+                 JOB_NAME=otiv-cs-vat-job;
+                 output=`kubectl get job $JOB_NAME`;
+                 if [ \"$?\" -eq \"0\" ];
+                 then
+                     kubectl delete job $JOB_NAME;
+                 else
+                     echo \"Job $JOB_NAME does not exist; Continuing.\";
+                 fi;" ]
+{{- end }}

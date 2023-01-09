@@ -1,0 +1,75 @@
+########################################################################
+# Settings for PowerDocs Database
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+########################################################################
+
+## port defines the database port of the PostgreSQL database:
+port: 5432
+## user defines the database administration user of the
+## PostgreSQL database:
+user: postgres
+## password defines the database administration password of the
+## PostgreSQL database:
+password:
+# mountPath defines the directory the persistent volume for
+# the database is mounted to:
+mountPath: /var/lib/postgresql/data
+# directory defines where the database files are stored.
+# Postgres requires to create an empty subdirectory for the database
+# data, rather than the direct mount point (which will have a
+# "lost+found" folder)
+directory: /var/lib/postgresql/data/pgdata
+## serviceAccountName defines the name of the service account the
+## pods are running under. Normally that is 'default'
+serviceAccountName: default
+# image.* defines Docker image location, tags and pull parameters
+# for the Content Server database:
+image:
+  source:
+  name: postgres
+  tag: 
+## existingSecret: An already existing kubernetes secret, which contains passwords.
+## If this is specified then the kubernetes secret will be preferred, and any provided password values will be ignored.
+# existingSecret: secretname
+# resources.* defines the resource requirements for Content Server
+# database:
+resources:
+  enabled: true
+  requests:
+    cpu: 0.5
+    memory: 500m
+  limits:
+    cpu: 2
+    memory: 4Gi
+  storage: 1Gi
+  storageClassName: standard
+# enableLoadBalancer defines if the Content Server database is
+# exposed outside the Kubernetes cluster via a load balancer:
+enableLoadBalancer: false
+# readinessProbe.* defines initial delays and timeout seconds for
+# the readiness probe which indicates if the Content Server database
+# is ready to receive traffic. The probe is run every period
+# seconds:
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  timeoutSeconds: 5
+  periodSeconds: 10
+# livenessProbe.* defines delays, timeout seconds and failure
+# threshold for the liveness probe which indicates if the
+# Content Server database is still alive and operational:
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  timeoutSeconds: 5
+  periodSeconds: 10
+  failureThreshold: 3
+# loggingEnabled lets PostgreSQL container output detailed log information
+loggingEnabled: false
+config:
+  ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+  ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+  ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+  ## software running in the container.
+  timeZone: Etc/UTC

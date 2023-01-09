@@ -1,0 +1,32 @@
+{{- if .Values.global.usingServiceMesh }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: otiv-init-otds-job
+  labels:
+    app.kubernetes.io/name: {{ include "brava.name" . }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      name: otiv-init-otds-job
+      annotations:
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: {{ .Values.global.k8sApiIPRanges }}
+      labels:
+        app.kubernetes.io/name: {{ include "brava.name" . }}
+        helm.sh/chart: {{ include "brava.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      restartPolicy: Never
+      serviceAccountName: otiv-asecret-sa
+    {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.imagePullSecret }}
+    {{- end }}
+      containers:
+      {{ template "init.otds.container" . }}
+{{- end }}

@@ -1,0 +1,77 @@
+{{- if eq .Values.ingress.enabled true }}
+
+########################################################################
+# Kubernetes Ingress for OTDS
+# External Interface to provide a Fully Qualified Domain Name (FQDN)
+# and enable secure HTTPS communication (if ingress.secret is provided)
+########################################################################
+{{- $serviceName := include "otds.ingress.service" . -}}
+{{- $portNumber := .Values.otdsws.port -}}
+{{- $prependPath := .Values.otdsws.ingress.prependPath -}}
+{{- $paths := include "otds.ingress.paths" $ | splitList "," | rest -}}
+
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+apiVersion: networking.k8s.io/v1
+{{ else }}
+apiVersion: extensions/v1beta1
+{{ end }}
+kind: Ingress
+metadata:
+  name: {{ template "otds.name" . }}-ingress
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  annotations:
+{{- if not (.Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress") }}
+{{- if .Values.ingress.class }}
+    kubernetes.io/ingress.class: {{ .Values.ingress.class }}
+{{- end }}
+{{- end }}
+{{- range $key, $value := .Values.ingress.annotations }}
+    {{ $key }}: {{ $value | squote }}
+{{- end }}
+spec:
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+{{- if .Values.ingress.class }}
+  ingressClassName: {{ .Values.ingress.class }}
+{{- end }}  
+{{- end }}
+{{- if .Values.ingress.secret }}
+  tls:
+  - secretName: {{ .Values.ingress.secret }}
+    hosts:
+    - {{ .Values.otdsws.publicHostname }}  
+{{- end }}
+  rules:
+  - host: {{ .Values.otdsws.publicHostname }}
+    http:
+      paths:
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+{{- range $paths }}
+{{- if $prependPath }}
+      - path: {{ printf "/%s%s" $prependPath . }}
+{{- else }}
+      - path: {{ . }}
+{{- end }}
+        pathType: Prefix
+        backend:
+          service:
+            name: {{ $serviceName }}
+            port:
+              number: {{ $portNumber }}
+{{- end }}
+{{ else }}
+{{- range $paths }}
+{{- if $prependPath }}
+      - path: {{ printf "/%s%s" $prependPath . }}
+{{- else }}
+      - path: {{ . }}
+{{- end }}
+        backend:
+          serviceName: {{ $serviceName }}
+          servicePort: {{ $portNumber }}
+{{- end }}
+{{- end }}
+---
+
+{{- end }}

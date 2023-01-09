@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 22.3.0
+description: OpenText Content Server forms the document management cornerstone of
+  the OpenText Extended ECM.
+name: otcs
+version: 22.3.0

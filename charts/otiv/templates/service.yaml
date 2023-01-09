@@ -1,0 +1,20 @@
+{{- if not .Values.global.otdsMigration }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: hazel-brava-svc
+  labels:
+    app.kubernetes.io/name: {{ include "brava.name" . }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/instance: hazel-brava-svc
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  clusterIP: None
+  ports:
+    - port: {{ .Values.global.hazelport }}
+      protocol: TCP
+      name: hazelcast
+  clusterIP: None
+  selector:
+      hazel: brava
+{{- end }}

@@ -1,0 +1,27 @@
+########################################################################
+# OpenText Content Server Database Kubernetes Configurations
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  ## Postgres initdb recommends a subdirectory be created to contain the
+  ## data, rather than the direct mount point
+  PGDATA: {{ .Values.directory }}
+  TZ: {{ .Values.config.timeZone }}
+---
+{{- if .Values.global.otds.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-otds-init
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  otdsInit.sql: |
+    create database otdsdb;
+---
+{{- end }}

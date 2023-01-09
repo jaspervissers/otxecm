@@ -1,0 +1,52 @@
+{{- if .Values.global.usingServiceMesh }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: otiv-delete-init-jobs
+  labels:
+    app.kubernetes.io/name: {{ include "brava.name" . }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      name: otiv-delete-init-jobs
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app.kubernetes.io/name: {{ include "brava.name" . }}
+        helm.sh/chart: {{ include "brava.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      restartPolicy: Never
+      serviceAccountName: otiv-job-sa
+    {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.imagePullSecret }}
+    {{- end }}
+      containers:
+      - name: delete-init-jobs
+        image: {{ include "otds.init.image.path" . }}
+        securityContext:
+          allowPrivilegeEscalation: false
+        command:
+          - bash
+        args: [ "-c",
+                "sleep 3;
+                 output=`kubectl delete job otiv-init-otds-job`;
+                 if [ \"$?\" -eq \"0\" ];
+                 then
+                     echo \"Job deleted; Continuing.\";
+                 else
+                     echo \"Job didn't exist; Continuing.\";
+                 fi;" ]
+{{- end }}

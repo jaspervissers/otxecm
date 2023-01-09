@@ -1,0 +1,97 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+spec:
+  serviceName: {{ .Chart.Name }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      ## serviceAccountName defines the name of the service account the
+      ## pods are running under. Normally that is 'default'
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      securityContext:
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: {{ .Chart.Name }}-configmap
+        env:
+          - name: POSTGRES_PASSWORD
+            valueFrom:
+              secretKeyRef:
+              {{- if .Values.existingSecret }}
+                name: {{ .Values.existingSecret }}
+              {{- else }}
+                name: {{ .Chart.Name }}-secrets
+              {{- end }}
+                key: DB_ADMIN_PASSWORD
+
+{{- if not (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ .Values.image.source }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+{{- else }}
+        image: {{ .Values.image.source }}{{ .Values.image.name }}:{{ .Values.image.tag }}
+{{- end }}
+        name: {{ .Chart.Name }}
+{{- if eq .Values.readinessProbe.enabled true }}
+        readinessProbe:
+            exec:
+              command: ["/usr/bin/pg_isready", "-h", "localhost", "-q"]
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+{{- end }}
+{{- if eq .Values.livenessProbe.enabled true }}
+        livenessProbe:
+            exec:
+              command: ["/usr/bin/pg_isready", "-h", "localhost", "-q"]
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+{{- end }}
+{{- if eq .Values.resources.enabled true }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+{{- end }}
+        ports:
+        - containerPort: {{ .Values.port }}
+        volumeMounts:
+        - mountPath: {{ .Values.mountPath }}
+          name: data
+{{- if .Values.global.otds.enabled }}
+        - name: otds-init
+          mountPath: /docker-entrypoint-initdb.d/
+      volumes:
+        - name: otds-init
+          configMap:
+            name: {{ .Chart.Name }}-otds-init
+{{- end }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes:
+        - ReadWriteOnce
+{{- if .Values.resources.storageClassName }}
+      storageClassName: {{ .Values.resources.storageClassName | quote }}
+{{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.resources.storage }}
+---

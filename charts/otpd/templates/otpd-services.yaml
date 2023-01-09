@@ -1,0 +1,31 @@
+########################################################################
+# OpenText PowerDocs Kubernetes Service
+########################################################################
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Values.serviceName }}
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- range .Values.service.annotations }}
+    {{ . }}
+    {{- end }}
+  {{- end }}
+spec:
+{{- if eq (.Values.serviceType | toString) "NodePort"}}
+  type: NodePort
+{{- else if eq (.Values.serviceType | toString) "LoadBalancer"}}
+  type: LoadBalancer
+{{- else}}
+  {{- fail "Invalid serviceType"}}
+{{- end }}
+  ports:
+  - name: {{ .Chart.Name }}
+    port: {{ .Values.port }}
+    targetPort: {{ .Values.targetPort }}
+  selector:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---

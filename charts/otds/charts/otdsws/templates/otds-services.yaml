@@ -1,0 +1,46 @@
+{{/*
+Make this file only relevant if we want to deploy a 
+OTDS Web Services container for OpenText Directory Services as part of this Helm Chart:
+*/}}
+{{- if eq .Values.enabled true }}
+
+########################################################################
+# OpenText Directory Services (OTDS) Kubernetes Service
+{{- if eq .Values.ingress.enabled true }}
+# Exposed outside the Kubernetes cluster via an Ingress
+{{- else }}
+# Exposed outside the Kubernetes cluster as a Load Balancer
+{{- end }}
+########################################################################
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ template "otdsws.service" . }}
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+spec:
+{{- if .Values.serviceType }}
+  type: {{ .Values.serviceType }}
+{{- else }}
+{{- if eq .Values.ingress.enabled true }}
+  # We have an Ingress - so we just need ClusterIP here (no LoadBalancer)
+  type: ClusterIP
+{{- else }}
+  # We don't have an Ingress - so we need a LoadBalancer here
+  type: LoadBalancer
+{{- end }}
+{{- end }}
+  ports:
+  - name: {{ .Chart.Name }}
+    protocol: {{ .Values.portProtocol }}
+    port: {{ .Values.port }}
+    targetPort: {{ .Values.targetPort }}
+  selector:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---
+
+{{- end }}

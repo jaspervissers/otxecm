@@ -1,0 +1,76 @@
+{{- if .Values.ingress.enabled -}}
+{{ $isV1ApiSupported := .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+apiVersion: {{ $isV1ApiSupported | ternary "networking.k8s.io/v1" "networking.k8s.io/v1beta1" }}
+kind: Ingress
+metadata:
+  name: {{ .Chart.Name }}
+  annotations:
+    kubernetes.io/ingress.class: "{{ .Values.global.ingressClass }}"
+  {{- range $key, $value := .Values.global.ingressAnnotations }}
+    {{ $key }}: {{ $value | squote }}
+  {{- end }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/instance: {{ .Chart.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  {{- $subcharts := (list "asset" "config" "highlight" "markup" "metis" "publication" "otds" "viewer") }}
+{{- if and (eq .Values.global.publicWebProtocol "https") (.Values.global.ingressSSLSecret) }}
+  tls:
+  - hosts:
+  {{- range $subchart := $subcharts }}
+  {{- $subchartObj := index $.Values $subchart }}
+  {{- if $subchartObj.enabled }}
+  {{- if $subchartObj.ingress }}
+  {{- if $subchartObj.ingress.enabled }}
+  {{- if eq $subchart "otds"  }}
+    - {{ $subchart }}{{ template "ingress.suffix" $ }}
+  {{- else }}
+    - {{ $.Chart.Name }}-{{ $subchart }}{{ template "ingress.suffix" $ }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+    secretName: {{ .Values.global.ingressSSLSecret }}
+{{- end }}
+  rules:
+  {{- range $subchart := $subcharts }}
+  {{- $subchartObj := index $.Values $subchart }}
+  {{- if $subchartObj.enabled }}
+  {{- if $subchartObj.ingress }}
+  {{- if $subchartObj.ingress.enabled }}
+  {{- if eq $subchart "otds"  }}
+  - host: {{ $subchart }}{{ template "ingress.suffix" $ }}
+  {{- else }}
+  - host: {{ $.Chart.Name }}-{{ $subchart }}{{ template "ingress.suffix" $ }}
+  {{- end }}
+    http:
+      paths:
+      {{- if not $isV1ApiSupported }}
+      - backend:
+          {{- if eq $subchart "otds" }}
+          serviceName: {{ template "otds.service.name" $ }}
+          {{- else }}
+          serviceName: {{ $.Chart.Name }}-{{ $subchart }}
+          {{- end }}
+          servicePort: http
+      {{- else }}
+      - backend:
+          service:
+            {{- if eq $subchart "otds" }}
+            name:  {{ template "otds.service.name" $ }}
+            {{- else }}
+            name: {{ $.Chart.Name }}-{{ $subchart }}
+            {{- end }}
+            port:
+              name: http
+        pathType: ImplementationSpecific
+        path: 
+      {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}

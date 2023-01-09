@@ -1,0 +1,830 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "required": [
+    "image",
+    "serviceAccountName",
+    "containerLogLevel",
+    "containerDebugLogRoll",
+    "sharedAddressSpaceNat",
+    "config",
+    "ingress",
+    "serviceType",
+    "readinessProbe",
+    "livenessProbe",
+    "loadAdminSettings",
+    "loadLicense",
+    "storageClassName",
+    "csPersist",
+    "contentServerFrontend",
+    "contentServerAdmin",
+    "contentServerBackendSearch",
+    "fluentbit"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "required": [
+        "name",
+        "tag",
+        "pullPolicy"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "IfNotPresent",
+            "Always",
+            "Never"
+          ]
+        }
+      }
+    },
+    "serviceAccountName": {
+      "type": "string"
+    },
+    "containerLogLevel": {
+      "type": "string",
+      "enum": [
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "CRITICAL"
+      ]
+    },
+    "containerDebugLogRoll": {
+      "type": "boolean"
+    },
+    "sharedAddressSpaceNat": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "passwords": {
+      "type": "object",
+      "required": [
+        "adminPassword",
+        "dataEncryptionKey",
+        "database",
+        "otacc"
+      ],
+      "properties": {
+        "adminPassword": {
+          "type": "string"
+        },
+        "dataEncryptionKey": {
+          "type": "string"
+        },
+        "baPassword": {
+          "type": "string"
+        },
+        "appMonitorPassword": {
+          "type": "string"
+        },
+        "scenarioOwnerPassword": {
+          "type": "string"
+        },
+        "database": {
+          "type": "object",
+          "required": [
+            "adminPassword",
+            "password"
+          ],
+          "properties": {
+            "adminPassword": {
+              "type": "string"
+            },
+            "password": {
+              "type": "string"
+            }
+          }
+        },
+        "otacc": {
+          "type": "object",
+          "required": [
+            "corePassword"
+          ],
+          "properties": {
+            "corePassword": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "initContainers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "image"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "image": {
+            "type": "object",
+            "required": [
+              "source",
+              "name",
+              "tag"
+            ],
+            "properties": {
+              "source": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "url",
+        "port",
+        "database",
+        "documentStorage",
+        "deployCws",
+        "createBizadminUser",
+        "createAppMonitorUser",
+        "enableSecurityLogs",
+        "customizations",
+        "deployBusinessScenarios",
+        "businessScenariosList",
+        "deployTransportPackage",
+        "transportPackagesUrlList",
+        "validHttpRefererslist",
+        "otds",
+        "search",
+        "timeZone"
+      ],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "port": {
+          "type": "integer"
+        },
+        "database": {
+          "type": "object",
+          "required": [
+            "type",
+            "name",
+            "hostname",
+            "port",
+            "useExistingDatabase",
+            "adminUsername",
+            "adminPGDatabase",
+            "username",
+            "autoExtendDataFile",
+            "autoExtendLogFile",
+            "oracle"
+          ],
+          "properties": {
+            "type": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "hostname": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "useExistingDatabase": {
+              "type": "boolean"
+            },
+            "adminUsername": {
+              "type": "string"
+            },
+            "adminPGDatabase": {
+              "type": "string"
+            },
+            "username": {
+              "type": "string"
+            },
+            "autoExtendDataFile": {
+              "type": "boolean"
+            },
+            "autoExtendLogFile": {
+              "type": "boolean"
+            },
+            "oracle": {
+              "type": "object",
+              "required": [
+                "dbDataFileSize",
+                "dbDataFileSpec",
+                "loadTnsnames"
+              ],
+              "properties": {
+                "serviceName": {
+                  "type": "string"
+                },
+                "tnsnamesConnectionAlias": {
+                  "type": "string"
+                },
+                "dbDataFileSpec": {
+                  "type": "string"
+                },
+                "dbDataFileSize": {
+                  "type": "integer"
+                },
+                "loadTnsnames": {
+                  "type": "object",
+                  "required": [
+                    "enabled",
+                    "filename"
+                  ],
+                  "properties": {
+                    "enabled": {
+                      "type": "boolean"
+                    },
+                    "filename": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "documentStorage": {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "otac",
+                "efs",
+                "database",
+                "otacc"
+              ]
+            },
+            "efsPath": {
+              "type": "string"
+            },
+            "efsStorage": {
+              "type": "string"
+            },
+            "efsStorageClassName": {
+              "type": "string"
+            }
+          }
+        },
+        "deployCws": {
+          "type": "boolean"
+        },
+        "createBizadminUser": {
+          "type": "boolean"
+        },
+        "createAppMonitorUser": {
+          "type": "boolean"
+        },
+        "enableSecurityLogs": {
+          "type": "boolean"
+        },
+        "customizations": {
+          "type": "object",
+          "required": [
+            "enable"
+          ],
+          "properties": {
+            "enable": {
+              "type": "boolean"
+            },
+            "includeManifestInitContainer": {
+              "type": "boolean"
+            }
+          }
+        },
+        "deployBusinessScenarios": {
+          "type": "boolean"
+        },
+        "businessScenariosList": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "OT-Teamspaces",
+              "OT-Projects",
+              "OT-Agreements",
+              "OT-EAM",
+              "OT-DMS",
+              "OT-HCM",
+              "OT-CRM"
+            ]
+          }
+        },
+        "deployTransportPackage":{
+          "type": "boolean"
+        },
+        "transportPackagesUrlList":{
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "validHttpRefererslist":{
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proxy": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "excludes": {
+              "type": "string"
+            }
+          }
+        },
+        "otds": {
+          "type": "object",
+          "required": [
+            "signInUrl",
+            "serverUrl",
+            "displayName",
+            "port"
+          ],
+          "properties": {
+            "signInUrl": {
+              "type": "string"
+            },
+            "serverUrl": {
+              "type": "string"
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "sameSite": {
+              "type": "object",
+              "properties": {
+                "enable": {
+                  "type": "boolean"
+                },
+                "value": {
+                  "type": "string",
+                  "enum": [
+                    "None",
+                    "Strict",
+                    "Lax"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "otac": {
+          "type": "object",
+          "required": [
+            "url",
+            "archiveName",
+            "certFilename"
+          ],
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "archiveName": {
+              "type": "string"
+            },
+            "certFilename": {
+              "type": "string"
+            }
+          }
+        },
+        "otacc": {
+          "type": "object",
+          "required": [
+            "url",
+            "archiveName",
+            "certFilename",
+            "coreUser",
+            "archiveDescription",
+            "collectionName"
+          ],
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "archiveName": {
+              "type": "string"
+            },
+            "certFilename": {
+              "type": "string"
+            },
+            "coreUser": {
+              "type": "string"
+            },
+            "archiveDescription": {
+              "type": "string"
+            },
+            "collectionName": {
+              "type": "string"
+            }
+          }
+        },
+        "search": {
+          "type": "object",
+          "required": [
+            "localSearch",
+            "sharedSearch"
+          ],
+          "properties": {
+            "localSearch": {
+              "type": "object",
+              "required": [
+                "enabled",
+                "storage"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "storage": {
+                  "type": "string"
+                }
+              }
+            },
+            "sharedSearch": {
+              "type": "object",
+              "required": [
+                "enabled",
+                "storageClassName",
+                "storage"
+              ],
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "storageClassName": {
+                  "type": "string"
+                },
+                "storage": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "timeZone": {
+          "type": "string"
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "serviceType": {
+      "type": "string",
+      "enum": [
+        "NodePort",
+        "LoadBalancer"
+      ]
+    },
+    "readinessProbe": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "initialDelaySeconds",
+        "timeoutSeconds",
+        "periodSeconds"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "livenessProbe": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "initialDelaySeconds",
+        "timeoutSeconds",
+        "periodSeconds",
+        "failureThreshold",
+        "maxThreadLifespan"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        },
+        "failureThreshold": {
+          "type": "integer"
+        },
+        "maxThreadLifespan": {
+          "type": "integer"
+        }
+      }
+    },
+    "loadAdminSettings": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "filename"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "filename": {
+          "type": "string"
+        }
+      }
+    },
+    "loadLicense": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "filename": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "storageClassName": {
+      "type": "string"
+    },
+    "csPersist": {
+      "type": "object",
+      "required": [
+        "storage",
+        "logStorage"
+      ],
+      "properties": {
+        "storage": {
+          "type": "string"
+        },
+        "logStorage": {
+          "type": "string"
+        }
+      }
+    },
+    "contentServerFrontend": {
+      "type": "object",
+      "required": [
+        "replicas",
+        "podManagementPolicy",
+        "resources",
+        "threadsNumber"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer"
+        },
+        "podManagementPolicy": {
+          "type": "string",
+          "enum": [
+            "Parallel",
+            "OrderedReady"
+          ]
+        },
+        "resources": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "requests",
+            "limits"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requests": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            }
+          }
+        },
+        "threadsNumber": {
+          "type": "integer"
+        }
+      }
+    },
+    "contentServerAdmin": {
+      "type": "object",
+      "required": [
+        "podManagementPolicy",
+        "resources",
+        "threadsNumber"
+      ],
+      "properties": {
+        "podManagementPolicy": {
+          "type": "string",
+          "enum": [
+            "Parallel",
+            "OrderedReady"
+          ]
+        },
+        "resources": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "requests",
+            "limits"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requests": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            }
+          }
+        },
+        "threadsNumber": {
+          "type": "integer"
+        }
+      }
+    },
+    "contentServerBackendSearch": {
+      "type": "object",
+      "required": [
+        "replicas",
+        "podManagementPolicy",
+        "resources",
+        "threadsNumber"
+      ],
+      "properties": {
+        "replicas": {
+          "type": "integer"
+        },
+        "podManagementPolicy": {
+          "type": "string",
+          "enum": [
+            "Parallel",
+            "OrderedReady"
+          ]
+        },
+        "resources": {
+          "type": "object",
+          "required": [
+            "enabled",
+            "requests",
+            "limits"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "requests": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            },
+            "limits": {
+              "type": "object",
+              "required": [
+                "cpu",
+                "memory"
+              ]
+            }
+          }
+        },
+        "threadsNumber": {
+          "type": "integer"
+        }
+      }
+    },
+    "fluentbit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "enabled"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "enum": [
+                false
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "enabled",
+            "image"
+          ],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "enum": [
+                true
+              ]
+            },
+            "image": {
+              "type": "object",
+              "required": [
+                "name",
+                "tag"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                }
+              }
+            },
+            "logsToMonitor": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "security"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

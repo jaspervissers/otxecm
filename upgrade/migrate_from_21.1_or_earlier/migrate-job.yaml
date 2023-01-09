@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-admin-pvcs
+  annotations:
+    "helm.sh/hook": pre-upgrade
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate-admin-pvcs
+{{- if not (regexFind "\\/$" .Values.global.imageSource ) }}
+        image: {{ .Values.global.imageSource }}/alpine:3.12.1
+{{- else }}
+        image: {{ .Values.global.imageSource }}alpine:3.12.1
+{{- end }}
+        command: ['sh']
+        args:
+          - '-c'
+          - >-
+              adduser -D otuser &&
+              cp -r /opt/opentext/cs/appData /opt/opentext/cs_persist/appData &&
+              cp -r /opt/opentext/cs/config /opt/opentext/cs_persist/config &&
+              cp -r /opt/opentext/cs/csapplications /opt/opentext/cs_persist/csapplications &&
+              rm -f /opt/opentext/cs_persist/config/csprimary &&
+              touch /opt/opentext/cs_persist/config/container_setup_done &&
+              chown -R otuser:otuser /opt/opentext/cs_persist
+        volumeMounts:
+        - name: old-appdata
+          mountPath: /opt/opentext/cs/appData
+        - name: old-config
+          mountPath: /opt/opentext/cs/config
+        - name: old-csapplications
+          mountPath: /opt/opentext/cs/csapplications
+        - name: new-data
+          mountPath: /opt/opentext/cs_persist
+      volumes:
+        - name: old-appdata
+          persistentVolumeClaim:
+            claimName: appdata-otcs-admin-0
+        - name: old-config
+          persistentVolumeClaim:
+            claimName: config-otcs-admin-0
+        - name: old-csapplications
+          persistentVolumeClaim:
+            claimName: csapplications-otcs-admin-0
+        - name: new-data
+          persistentVolumeClaim:
+            claimName: cs-persist-otcs-admin-0
+      restartPolicy: Never
+---
+
+# This section must be copied once for each otcs frontend replica
+# For example, if you have otcs-frontend-0 and otcs-frontend-1 then you must copy the section below
+# and replace otcs-frontend-0 with otcs-frontend-1
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-frontend-0-pvcs
+  annotations:
+    "helm.sh/hook": pre-upgrade
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate-frontend-0-pvcs
+{{- if not (regexFind "\\/$" .Values.global.imageSource ) }}
+        image: {{ .Values.global.imageSource }}/alpine:3.12.1
+{{- else }}
+        image: {{ .Values.global.imageSource }}alpine:3.12.1
+{{- end }}
+        command: ['sh']
+        args:
+          - '-c'
+          - >-
+              adduser -D otuser &&
+              cp -r /opt/opentext/cs/appData /opt/opentext/cs_persist/appData &&
+              cp -r /opt/opentext/cs/config /opt/opentext/cs_persist/config &&
+              cp -r /opt/opentext/cs/csapplications /opt/opentext/cs_persist/csapplications &&
+              rm -f /opt/opentext/cs_persist/config/csprimary &&
+              touch /opt/opentext/cs_persist/config/container_setup_done &&
+              chown -R otuser:otuser /opt/opentext/cs_persist
+        volumeMounts:
+        - name: old-appdata
+          mountPath: /opt/opentext/cs/appData
+        - name: old-config
+          mountPath: /opt/opentext/cs/config
+        - name: old-csapplications
+          mountPath: /opt/opentext/cs/csapplications
+        - name: new-data
+          mountPath: /opt/opentext/cs_persist
+      volumes:
+        - name: old-appdata
+          persistentVolumeClaim:
+            claimName: appdata-otcs-frontend-0
+        - name: old-config
+          persistentVolumeClaim:
+            claimName: config-otcs-frontend-0
+        - name: old-csapplications
+          persistentVolumeClaim:
+            claimName: csapplications-otcs-frontend-0
+        - name: new-data
+          persistentVolumeClaim:
+            claimName: cs-persist-otcs-frontend-0
+      restartPolicy: Never
+---

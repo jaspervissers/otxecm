@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "properties": {
+    "global": {
+      "type": "object",
+      "required": [
+        "imageSource"
+      ],
+      "properties": {
+        "imageSource": {
+          "description": "docker image registry",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

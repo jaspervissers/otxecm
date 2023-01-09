@@ -1,0 +1,51 @@
+# Check if otac-config pvc exists if dosent exits proceed
+{{- if eq (len (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "otac-config")) 0 }}
+# Check if otac-otac-0 pvc exists if dosent exits proceed
+{{- if eq (len (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "otac-otac-0")) 0 }}
+# Pre-install case requires the helm to create volume
+# Pre-upgrade is not required as the volume will already will be present if the customer installs 22.3.0
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-config
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "-2"
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteMany
+{{- if $.Values.resources.storageClassNameRWX }}
+  storageClassName: {{ $.Values.resources.storageClassNameRWX | quote }}
+{{- end }}
+  resources:
+    requests:
+      storage: 5Gi
+---
+{{- else }}
+# Pre-Upgrade volume for 21.2 and 20.2 Archive Servers
+# Pre-install case is not applicable here as there is no scope of install as we already have old volume 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-config
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteMany
+{{- if $.Values.resources.storageClassNameRWX }}
+  storageClassName: {{ $.Values.resources.storageClassNameRWX | quote }}
+{{- end }}
+  resources:
+    requests:
+      storage: 5Gi
+---
+{{- end }}
+{{- end }}

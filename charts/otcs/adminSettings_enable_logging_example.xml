@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <llconfig lean='true' scope='sub'>
+  <!-- sql logging: 0 - OFF, 1 - WARN, 2 - INFO, 3 - DEBUG, 4 - TRACE -->
+  <value key='Settings_Server_Log_ConnectLogsLogLevel'>2</value>
+  <!-- summary timings: 0 - OFF, 2 - INFO -->
+  <value key='Settings_Server_Log_SummaryTimingLogsLogLevel'>2</value>
+  <!-- thread logging:  0 - OFF, 1 - WARN, 2 - INFO, 3 - DEBUG, 4 - TRACE -->
+  <value key='Settings_Server_Log_ThreadLogsLogLevel'>2</value>
+</llconfig> 

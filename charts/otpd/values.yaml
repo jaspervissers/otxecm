@@ -1,0 +1,181 @@
+########################################################################
+# Settings for PowerDocs and its Database
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+########################################################################
+
+global:
+  otds:
+    ## enabled: controls if subchart is deployed
+    ## It also controls whether an existing OTDS server outside the cluster is used or not.
+    ## Set this to false if OTDS already exists, or is deployed separately from the otxecm helm chart.
+    enabled: true
+service:
+  # custom annotations that need to be assigned to otpd service.
+  annotations: []
+  # below is an example
+  # - "imageregistry: \"https://registry.opentext.com/\""
+## ingress enables Kubernetes Ingress for PowerDocs
+ingress:
+  enabled: false
+serviceType:
+## readinessProbe.*: parameters to indicate if otpd pod is ready to receive traffic
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 25
+  timeoutSeconds: 6
+  periodSeconds: 30
+## livenessProbe.*: parameters to indicate if otpd pod is alive and operational
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 900
+  timeoutSeconds: 8
+  periodSeconds: 60
+  failureThreshold: 3
+## serviceName defines the name of the Kubernetes service for
+## PowerDocs:
+serviceName: otpd
+## publicHostname defines the FQDN or IP address of the
+## Kubernetes Services of Content Server. If empty ("") the hostname
+## will dynamically be determined via the Kubernetes API.
+## To make the dynamic lookup work you need to define this rolebinding
+## in your Kubernetes cluster:
+publicHostname:
+## port is the external port the PowerDocs Kubernetes service
+## is reachable:
+port: 80
+## targetPort is the internal container port the Kubernetes service is
+## forwarding requests to.
+targetPort: 8080
+## protocol: communication protocol - used in config map
+protocol: http
+## hostname defines the hostname of the Kubernetes container for
+## PowerDocs (inside the stateful set definition):
+hostname: otpd
+## image.* defines Docker image location, tags and pull parameters for
+## PowerDocs - you need to adjust this:
+image:
+  source:
+  name: otpd
+  tag:
+  pullPolicy: Always
+  pullSecret:
+## admin defines the name of the PowerDocs Admin User (for Tomcat and PowerDocs apps)
+admin: powerdocsadmin
+## adminPassword defines the PowerDocs Admin Password (for Tomcat and PowerDocs apps)
+adminPassword:
+## user defines the name of the PowerDocs User in Tomcat (for Tomcat and PowerDocs apps)
+user: powerdocsuser
+## userPassword defines the PowerDocs User password
+userPassword:
+## monitorUser defines the name of the PowerDocs User in Tomcat
+monitorUser: powerdocsmonitoruser
+## monitorUserPassword defines the monitorUser User password
+monitorUserPassword:
+## apiUser defines the name of the PowerDocs User in Tomcat
+apiUser: powerdocsapiuser
+## apiUserPassword defines the apiUser User password
+apiUserPassword:
+## otdsPartition defines the name of the PowerDocs OTDS partition.
+## Use "powerdocs" if PowerDocs is deployed stand-alone.
+## Use "Content Server Members" if PowerDocs is deployed
+## as part of Extended ECM / Content Server.
+otdsPartition: Content Server Members
+## otdsResource defines the name of the PowerDocs OTDS resource
+otdsResource: pd
+## otdsOAuthClient defines the name of the PowerDocs OTDS OAuth client
+otdsOAuthClient: powerdocs
+## startupTime defines the time in seconds the PowerDocs Server Manager
+## needs to start in Tomcat and to create the PowerDocs database tables
+startupTime: 30
+## replicas for PowerDocs should always be 1:
+replicas: 1
+## fsGroup defines the group ID in Linux that the PowerDocs
+## Docker container runs in and that the volumes are mounted with.
+## Normally you don't want to change this!
+fsGroup: 1000
+## serviceAccountName defines the name of the service account the
+## pods are running under. Normally that is 'default'
+serviceAccountName: default
+## importDatabase defines the database for PowerDocs to import at startup
+## "OpenText_PowerDocs_db_config" is the PowerDocs sample database.
+## "SFSF_base_database_config" is the SuccessFactors sample database.
+## If not required leave importDatabase value as blank (no database import).
+importDatabase: SFSF_base_database_config
+## licensekey for powerdocs
+## NOTE the xECM PowerDocs license file must exist in otpd/
+otpdLicense:
+## OTPD will not work without a valid license, so always set loadLicense value to true during fresh installation
+## In upgrade scenario license info is fetched from database, so we need to apply license only if it get deleted manually before upgrade
+loadLicense: true
+## additionalJavaOpts defines additional Java parameters for OTPD
+additionalJavaOpts: ""
+## existingSecret: An already existing kubernetes secret, which contains passwords.
+## If this is specified then the kubernetes secret will be preferred, and any provided password values will be ignored.
+# existingSecret: secretname
+## resources.* defines the resource requirements for PowerDocs:
+resources:
+  enabled: true
+  requests:
+    cpu: 1
+    memory: 1.5Gi
+  limits:
+    cpu: 2
+    memory: 3Gi
+  storageClassName: standard
+## volumes.* defines the PowerDocs Applications that are used for volume mounts
+## to create persistency :
+volumes:
+  - mountPath: /opt/opentext/pdpersistlogs
+    name: pd-persist-logs
+    storage: 3.5Gi
+    accessMode: ReadWriteOnce
+
+## database.* includes all database connection parameters for
+## PowerDocs:
+database:
+  type: pg
+  hostname: otpd-db
+  port: 5432
+  adminDatabase: postgres
+  adminUsername: postgres
+  adminPassword:
+  name: pddocgen
+  username: pddocgen
+  password:
+## otds.* includes the connecion parameters to
+## OpenText Directory Services (OTDS)
+otds:
+  ## hostname defines the hostname of the Kubernetes container for
+  ## OTDS (inside the stateful set definition):
+  hostname: otds
+  ## admin is the name of the administrator user (login) for OTDS:
+  admin: admin
+  ## password is the name of the password of the administrator user
+  ## for OTDS:
+  password:
+  ## port defines the external port for the OTDS Kubernetes service:
+  port: 80
+  ## protocol: communication protocol - used in config map
+  protocol: http
+otcs:
+  ## enabled controls if otcs deployed along with powerdocs
+  ## will wait for otcs to completes its configuration
+  enabled: true
+  ## hostname defines the hostname of the Kubernetes container for
+  ## otcs-admin
+  hostname: otcs-admin-0
+  ## admin is the name of the administrator user (login) for OTCS:
+  admin: admin
+  ## password: password for the administrator user for OTCS
+  password:
+  ## port defines the external port for the OTCS Kubernetes service:
+  port: 8080
+  ## protocol: communication protocol - used in config map
+  protocol: http
+config:
+  ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+  ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+  ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+  ## software running in the container.
+  timeZone: Etc/UTC

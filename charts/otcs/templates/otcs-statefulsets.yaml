@@ -1,0 +1,18 @@
+########################################################################
+# OpenText Content Server - Kubernetes Stateful Set for ADMIN Server
+########################################################################
+{{ $data := dict "Values" .Values "Chart" .Chart "Release" .Release "pod_type" "admin" }}
+{{ template "otcs.statefulset" $data }}
+
+########################################################################
+# OpenText Content Server - Kubernetes Stateful Set for FRONTEND Server
+########################################################################
+{{ $data := dict "Values" .Values "Chart" .Chart "Release" .Release "pod_type" "frontend" }}
+{{ template "otcs.statefulset" $data }}
+
+########################################################################
+# OpenText Content Server - Kubernetes Stateful Set for BACKEND SEARCH
+# Server
+########################################################################
+{{ $data := dict "Values" .Values "Chart" .Chart "Release" .Release "pod_type" "backend-search" }}
+{{ template "otcs.statefulset" $data }}

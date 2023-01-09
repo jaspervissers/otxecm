@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: 22.3.0
+description: OpenText Archive Center is a scalable and integrated service for archiving
+  all your enterprise content.
+name: otac
+version: 22.3.0

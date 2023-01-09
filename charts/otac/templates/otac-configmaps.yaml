@@ -1,0 +1,39 @@
+########################################################################
+# OpenText Archive Center Kubernetes Configuration Maps
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  ## AC config:
+  bizHost: {{ .Values.serviceName }}-0
+  acProtocol: {{ .Values.protocol }}
+  resType: {{ .Values.resType }}
+  acPostAcConfig: "true"
+  acArchiveName: {{ .Values.archiveName }}
+  acPoolName: {{ .Values.poolName }}
+  acVolumeName: {{ .Values.volumeName }}
+  acVolumeDir: {{ .Values.volumeDirectory }}
+  ## Database config:
+  dbType: {{ .Values.database.type }}
+  dbSecureMode: {{ .Values.database.ssl | quote }}
+  targetDBName: {{ .Values.database.name }}
+  targetDBUserName: {{ .Values.database.username }}
+  PGHOST: {{ .Values.database.hostname }}
+  PGPORT: {{ .Values.database.port | quote }}
+  PGUSER: {{ .Values.database.adminUsername }}
+  ## OTDS config:
+  otdsAdmin: {{ .Values.otds.admin }}
+  {{- if (.Values.global.otds.enabled) }}
+  otdsTomcatHostname: {{ include "otxecm.otdsServiceName" . }}
+  {{- else }}
+  otdsTomcatHostname: {{ .Values.otds.hostname }}
+  {{- end }}
+  otdsTomcatPort: {{ .Values.otds.port | quote }}
+  otdsTomcatProtocol: {{ .Values.otds.protocol }}
+  SHARED_ADDRESS_SPACE_NAT: {{ .Values.SHARED_ADDRESS_SPACE_NAT | quote }}
+  TZ: {{ .Values.config.timeZone }}
+---

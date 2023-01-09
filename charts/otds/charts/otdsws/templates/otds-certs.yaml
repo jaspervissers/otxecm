@@ -1,0 +1,44 @@
+{{/*
+
+Make this file only relevant if we want to deploy a 
+
+OTDS Web Services container for OpenText Directory Services as part of this Helm Chart:
+
+*/}}
+
+{{- if eq .Values.enabled true }}
+
+apiVersion: v1
+
+kind: Secret
+
+metadata:
+
+  name: {{ template "otdsws.name" . }}-certs
+
+{{- if .Values.global.namespace }}
+
+  namespace: {{ .Values.global.namespace }}
+
+{{- end }}
+
+  labels:
+
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+
+data:
+
+{{- if .Values.otdsdb.sslDBRootCert }}
+{{/*
+
+Support SSL DB connection custom CA root certificate file
+
+*/}}
+
+  dbRootCA.crt: |- 
+
+    {{ .Values.otdsdb.sslDBRootCert | b64enc }}
+
+{{- end }}
+
+{{- end }}

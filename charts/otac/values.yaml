@@ -1,0 +1,152 @@
+########################################################################
+# Settings for Archive Center and its Database
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+########################################################################
+
+global:
+  otds:
+    ## otdsUseReleaseName controls whether the release name is used in
+    ## the names of the objects.
+    otdsUseReleaseName: false
+    otdsws:
+      ## serviceName defines the hostname of the Kubernetes container for
+      ## OTDS (inside the stateful set definition):
+      serviceName: otds
+
+service:
+  # custom annotations that need to be assigned to otac service.
+  annotations: []
+  # below is an example
+  # - "imageregistry: \"https://registry.opentext.com/\""
+
+## serviceName defines the name of the Kubernetes service for
+## Archive Center:
+serviceName: otac
+## port is the external port the Archive Center Kubernetes service
+## is reachable:
+port: 8080
+## targetPort is the internal container port the Kubernetes service is
+## forwarding requests to.
+targetPort: 8080
+## protocol: communication protocol - used in config map
+protocol: http
+## archiveName is the name of the Archive Center archive that will be
+## used to store Content Server documents
+archiveName: A1
+## poolName is the name of the Archive Center pool that will be
+## used to store Content Server documents
+poolName: Pool1
+## volumeName is the name of the Archive Center volume that will be
+## used to store Content Server documents
+volumeName: Vol1
+## hostname defines the hostname of the Kubernetes container for
+## Archive Center (inside the stateful set definition):
+hostname: otac
+## image.* defines Docker image location, tags and pull parameters for
+## Archive Center - you need to adjust this:
+image:
+  source:
+  name: otac
+  tag:
+  pullPolicy: Always
+  pullSecret:
+## readinessProbe.*: parameters to indicate if otac container is ready to receive traffic
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 120
+  timeoutSeconds: 5
+  periodSeconds: 10
+## livenessProbe.*: parameters to indicate if otac container is alive and operational
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  timeoutSeconds: 60
+  periodSeconds: 10
+  failureThreshold: 5
+## replicas for Archive Center should always be 1:
+replicas: 1
+## fsGroup defines the group ID in Linux that the Archive Center
+## Docker container runs in and that the volumes are mounted with.
+## Normally you don't want to change this!
+fsGroup: 1000
+## serviceAccountName defines the name of the service account the
+## pods are running under. Normally that is 'default'
+serviceAccountName: default
+## acPort is an additional container port (see stateful set) that
+## is NOT exposed via the Kubernetes service for Archive Center
+acPort: 4034
+## portProtocol is the protocol the Archive Center Kubernetes service
+## is using:
+portProtocol: TCP
+## volumeDirectory is the path to the Archive Center storage location
+## that will be used to store Content Server documents
+volumeDirectory: /opt/opentext/ac_sd/vol1
+## resType for Archive Center is always 'AC' - do not change!
+resType: AC
+## SHARED_ADDRESS_SPACE_NAT can be set to true to configure Tomcat to treat
+## 100.64.0.0/10 addresses as internal for compatibility with environments
+## that use Carrier-grade NAT
+SHARED_ADDRESS_SPACE_NAT: false
+## resources.* defines the resource requirements for Archive Center:
+resources:
+  enabled: true
+  requests:
+    cpu: 1
+    memory: 1.5Gi
+  limits:
+    cpu: 2
+    memory: 3Gi
+  storageClassName: standard
+  storageClassNameRWX: standard
+## volumes.* defines the Archive Center volumes :
+volumes:
+    accessMode: ReadWriteOnce
+    storage:
+      ## bdv: location for buffer device
+      bdv: 1Gi
+      ## dv: location for device
+      dv: 1Gi
+      ## sd: volume where all archive data is stored.
+      ## Must be large enough to store all incoming documents.
+      sd: 1Gi
+      ## logs: volume where all logs files are stored.
+      logs: 4Gi
+
+
+## database.* includes all database connection parameters for
+## Archive Center:
+database:
+  name: ac
+  type: pg
+  ssl: false
+  hostname: otac-db
+  port: 5432
+  adminUsername: postgres
+  adminPassword:
+  username: ac
+  password:
+## otds.* includes the connecion parameters to
+## OpenText Directory Services (OTDS)
+otds:
+  ## hostname defines the hostname of the Kubernetes container for
+  ## OTDS (inside the stateful set definition):
+  hostname: otdsws
+  ## admin is the name of the administrator user (login) for OTDS:
+  admin: admin
+  ## password is the name of the password of the administrator user
+  ## for OTDS:
+  password:
+  ## port defines the external port for the OTDS Kubernetes service:
+  port: 80
+  ## protocol: communication protocol - used in config map
+  protocol: http
+## existingSecret: An already existing kubernetes secret, which contains passwords.
+## If this is specified then the kubernetes secret will be preferred, and any provided password values will be ignored.
+# existingSecret: secretname
+config:
+  ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+  ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+  ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+  ## software running in the container.
+  timeZone: Etc/UTC

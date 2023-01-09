@@ -1,0 +1,22 @@
+Thank you for installing {{ .Chart.Name }}
+
+Your release is named {{ .Release.Name }}
+The release revision is {{ .Release.Revision }}
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+To see all deployed releases type:
+
+  $ helm list -a
+
+To see the status of the Kubernetes pods, try:
+
+  $ kubectl get pods -w
+
+To finally delete the deployment and its persistent storage, try:
+
+  $ helm delete {{ .Release.Name }}
+  $ kubectl delete pvc --all

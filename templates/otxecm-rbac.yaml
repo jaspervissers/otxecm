@@ -1,0 +1,18 @@
+{{- if or (eq .Values.global.otcsPublicUrl "") (eq .Values.global.otdsPublicUrl "") }}
+# Enable all pods in default namespace to read Kubernetes api
+# this is required for OpenText Content Server to talk to OTDS
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  name: {{ .Release.Namespace }}-viewer
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.otcs.serviceAccountName }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

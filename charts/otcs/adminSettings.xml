@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<llconfig lean='true' scope='sub'>
+  <value key='Settings_Server_Parameters_AdminEmail'>test@example.com</value>
+</llconfig>

@@ -1,0 +1,96 @@
+########################################################################
+# OpenText PowerDocs Kubernetes Configuration Maps
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  ## PowerDocs config:
+  OTPD_ADMIN: {{ .Values.admin }}
+  OTPD_USER: {{ .Values.user }}
+  OTPD_MONITOR_USER: {{ .Values.monitorUser }}
+  OTPD_API_USER: {{ .Values.apiUser }}
+  OTPD_HOSTNAME: {{ .Values.hostname }}
+  {{- if .Values.publicHostname }}
+  OTPD_PUBLIC_HOSTNAME: {{ regexReplaceAllLiteral "^http(s?)://" .Values.publicHostname "" | regexFind "[^:]+" | required "A valid .Values.global.otpdPublicUrl value with http(s)://domain is required" }}
+  {{- else }}
+  OTPD_PUBLIC_HOSTNAME: ""
+  {{- end }}
+  OTPD_PUBLIC_PORT: {{ template "otpd.port" . }}
+  OTPD_PUBLIC_PROTOCOL: {{ template "otpd.protocol" . }}
+  OTCS_ENABLED: {{ template "otpd.otcsEnabled" . }}
+  OTPD_TARGET_PORT: {{ .Values.targetPort | quote }}
+  OTPD_PARTITION: {{ .Values.otdsPartition }}
+  OTPD_RESOURCE: {{ .Values.otdsResource }}
+  OTPD_OAUTH_CLIENT: {{ .Values.otdsOAuthClient }}
+  OTPD_STARTUP_TIME: {{ .Values.startupTime | quote }}
+  {{- if .Values.importDatabase }}
+  OTPD_DBFILE: {{ .Values.importDatabase}}
+  {{- else }}
+  OTPD_DBFILE: ""
+  {{- end }}
+  ## Database config:
+  POSTGRES_HOSTNAME: {{ .Values.database.hostname }}
+  POSTGRES_PORT: {{ .Values.database.port | quote }}
+  POSTGRES_DB: {{ .Values.database.adminDatabase }}
+  POSTGRES_USER: {{ .Values.database.adminUsername }}
+  POSTGRES_PD_DB: {{ .Values.database.name }}
+  POSTGRES_PD_USER: {{ .Values.database.username }}
+  ## OTDS config:
+  {{- if eq .Values.global.otds.enabled true }}
+  useExternalOTDS: "false"
+  {{- else }}
+  useExternalOTDS: "true"
+  {{- end }}
+  OTDS_ADMIN: {{ .Values.otds.admin }}
+  OTDS_HOSTNAME: {{ .Values.otds.hostname }}
+  {{- if .Values.otds.publicHostname }}
+  OTDS_PUBLIC_HOSTNAME: {{ regexReplaceAllLiteral "^http(s?)://" .Values.otds.publicHostname "" | regexFind "[^:]+" | required "A valid .Values.global.otdsPublicUrl value with http(s)://domain is required" }}
+  {{- else }}
+  OTDS_PUBLIC_HOSTNAME: ""
+  {{- end }}
+  OTDS_PUBLIC_PROTOCOL: {{ template "otds.publicProtocol" . }}
+  OTDS_PUBLIC_PORT: {{ template "otds.publicPort" . }}
+  OTDS_PORT: {{ .Values.otds.port | quote }}
+  OTDS_PROTOCOL: {{ .Values.otds.protocol }}
+  {{- if .Values.otcs.publicHostname }}
+  OTCS_PUBLIC_HOSTNAME: {{ regexReplaceAllLiteral "^http(s?)://" .Values.otcs.publicHostname "" | regexFind "[^:]+" | required "A valid .Values.global.otcsPublicUrl value with http(s)://domain is required" }}
+  {{- else }}
+  OTCS_PUBLIC_HOSTNAME: ""
+  {{- end }}
+  OTCS_PUBLIC_PROTOCOL: {{ template "otpd.protocol" . }}
+  TZ: {{ .Values.config.timeZone }}
+  ## OTCS config:
+  OTCS_HOSTNAME: {{ .Values.otcs.hostname }}
+  OTCS_ADMIN: {{ .Values.otcs.admin }}
+  OTCS_PORT: {{ .Values.otcs.port | quote }}
+  OTCS_PROTOCOL: {{ .Values.otcs.protocol }}
+  ## Getting total ram to set to tomcat
+  {{- $memorySuffix := regexFind "(Gi|Mi)$" .Values.resources.limits.memory }}
+  {{- if eq $memorySuffix "Gi" }}
+  {{- $memoryRoundedDown := div (regexFind "^[0-9]+" .Values.resources.limits.memory | mul 3) 4 }}
+  JVM_MEMORY: {{ cat $memoryRoundedDown "Gi" | nospace| quote }}
+  {{- else if eq $memorySuffix "Mi" }}
+  {{- $memoryRoundedDown := div (regexFind "^[0-9]+" .Values.resources.limits.memory | mul 3) 4 }}
+  JVM_MEMORY: {{ cat $memoryRoundedDown "Mi" | nospace| quote }}
+  {{- else }}
+  {{- fail "Memory for otpd resource limits must be specified with a Gi or Mi suffix." }}
+  {{- end }}
+  CATALINA_OPTS: {{ .Values.additionalJavaOpts | quote }}
+  OTPD_LOADLICENSE_ENABLED: {{ .Values.loadLicense | quote }}
+  {{- if eq .Values.loadLicense true }}
+  OTPD_LICENSE: |-
+  {{- if not .Values.otpdLicense  }}
+  {{- fail "otpd license filename is not specified, set it using otpd.Values.otpdLicense" }}
+  {{- end }}
+  {{- .Files.Get .Values.otpdLicense | nindent 4 }}
+{{- if (eq (.Files.Get .Values.otpdLicense) "") }}
+{{- fail "A valid license is required to deploy otpd. Please make sure the file specified by .Values.otpdLicense is valid." }}
+  {{- end }}
+---
+
+{{- end }}
+---

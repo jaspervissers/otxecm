@@ -1,0 +1,63 @@
+{{- if not .Values.global.otdsMigration }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: otiv-pvc-job
+  labels:
+    app.kubernetes.io/name: {{ include "brava.name" . }}
+    helm.sh/chart: {{ include "brava.chart" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-4"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      name: otiv-pvc-job
+      {{- if .Values.global.usingServiceMesh }}
+      annotations:
+        sidecar.istio.io/inject: "false"
+      {{- end }}
+      labels:
+        app.kubernetes.io/name: {{ include "brava.name" . }}
+        helm.sh/chart: {{ include "brava.chart" . }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      restartPolicy: Never
+      serviceAccountName: otiv-pvc-sa
+    {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.imagePullSecret }}
+    {{- end }}
+      containers:
+      - name: pvc-rwx
+        image: {{ include "otds.init.image.path" . }}
+        securityContext:
+          allowPrivilegeEscalation: false
+        env:
+          - name: STORAGE_SIZE
+            value: {{ .Values.global.nfsPersistenceSize }}
+          - name: STORAGE_CLASS_NAME
+            value: {{ .Values.global.storageClassNameNFS }}
+{{- if .Values.global.timeZone }}
+          - name: TZ
+            value: '{{ .Values.global.timeZone }}'
+{{- end }}
+        command:
+          - bash
+        args: [ "-c",
+                "printf \"kind: PersistentVolumeClaim\napiVersion: v1\nmetadata:\n  name: otiv-bas\nspec:\n\" > /tmp/pvc.yaml;
+                 {{- if .Values.global.storageClassNameNFS }}
+                 printf \"  storageClassName: $(STORAGE_CLASS_NAME)\n\" >> /tmp/pvc.yaml;
+                 {{- end }}
+                 printf \"  accessModes:\n    - ReadWriteMany\n\" >> /tmp/pvc.yaml;
+                 printf \"  resources:\n    requests:\n      storage: $(STORAGE_SIZE)\n\" >> /tmp/pvc.yaml;
+                 kubectl apply -f /tmp/pvc.yaml;" ]
+
+{{- end }}

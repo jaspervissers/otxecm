@@ -1,0 +1,40 @@
+{{- if .Values.global.usingServiceMesh }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: vertx-to-ip
+spec:
+  hosts:
+  - vertx-to-ip.local
+  addresses:
+  - {{ .Values.global.transformationPodApiIPRanges }}
+  exportTo:
+  - "."
+  ports:
+  - number: 5150
+    name: tcp-vertx-0
+    protocol: TCP
+  - number: 5151
+    name: tcp-vertx-1
+    protocol: TCP
+  - number: 5152
+    name: tcp-vertx-2
+    protocol: TCP
+  - number: 5153
+    name: tcp-vertx-3
+    protocol: TCP
+  location: MESH_INTERNAL
+  resolution: NONE
+
+---
+
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: vertx-to-ip
+spec:
+  host: vertx-to-ip.local
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+{{- end }}

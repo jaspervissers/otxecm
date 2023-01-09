@@ -1,0 +1,166 @@
+{{- if eq .Values.global.ingressEnabled true }}
+{{- $otivComponents := (list "asset" "config" "highlight" "markup" "publication" "viewer") }}
+########################################################################
+# Kubernetes Ingress for Content Server, Archive Center and OTDS
+# External Interface to provide a Fully Qualified Domain Name (FQDN)
+# and enable secure HTTPS communication (if global.ingressSSLSecret is provided)
+########################################################################
+{{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+apiVersion: networking.k8s.io/v1
+{{- else if .Capabilities.APIVersions.Has "extensions/v1beta1/Ingress" }}
+apiVersion: extensions/v1beta1
+{{- else }}
+{{- fail "kubernetes cluster does not support networking.k8s.io/v1 or extensions/v1beta1" }}
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ .Chart.Name }}-ingress
+  annotations:
+{{- if .Values.global.ingressClass }}
+    kubernetes.io/ingress.class: {{ .Values.global.ingressClass }}
+{{- end }}
+{{- range $key, $value := .Values.global.ingressAnnotations }}
+    {{ $key }}: {{ $value | squote }}
+{{- end }}
+spec:
+{{- if .Values.global.ingressSSLSecret }}
+  tls:
+    - hosts:
+{{- if eq .Values.global.otcs.enabled true }}
+      - {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otcsPublicUrl "" }}
+{{- if not (regexFind "^http(s?)://" .Values.global.otcsPublicUrl ) }}
+{{- fail "A valid .Values.global.otcsPublicUrl value with http(s)://domain is required" }}
+{{- end }}
+{{- end }}
+{{- if eq .Values.global.otds.enabled true }}
+      - {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otdsPublicUrl "" }}
+{{- if not (regexFind "^http(s?)://" .Values.global.otdsPublicUrl ) }}
+{{- fail "A valid .Values.global.otdsPublicUrl value with http(s)://domain is required" }}
+{{- end }}
+{{- end }}
+{{- if eq .Values.global.otac.enabled true }}
+      - {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otacPublicUrl "" | regexFind "[^:]+" | required "A valid .Values.global.otacPublicUrl value with http(s)://domain is required" }}
+{{- if not (regexFind "^http(s?)://" .Values.global.otacPublicUrl ) }}
+{{- fail "A valid .Values.global.otacPublicUrl value with http(s)://domain is required" }}
+{{- end }}
+{{- end }}
+{{- if eq .Values.global.otpd.enabled true }}
+      - {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otpdPublicUrl "" | regexFind "[^:]+" | required "A valid .Values.global.otpdPublicUrl value with http(s)://domain is required" }}
+{{- if not (regexFind "^http(s?)://" .Values.global.otpdPublicUrl ) }}
+{{- fail "A valid .Values.global.otpdPublicUrl value with http(s)://domain is required" }}
+{{- end }}
+{{- end }}
+{{- if and (.Values.global.otiv.enabled) (not .Values.otiv.ingress.enabled) }}
+  {{- range $otivComponent := $otivComponents }}
+      - otiv-{{ $otivComponent }}{{ template "otiv.ingress.suffix" $ }}
+  {{- end }}
+{{- end }}
+      secretName: {{ .Values.global.ingressSSLSecret }}
+{{- end }}
+  rules:
+{{- if eq .Values.global.otcs.enabled true }}
+  - host: {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otcsPublicUrl "" }}
+    http:
+      paths:
+      - backend:
+        {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: otcs-frontend
+            port:
+              number: {{ .Values.otcs.config.port }}
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: otcs-frontend
+          servicePort: {{ .Values.otcs.config.port }}
+        {{- end }}
+{{- end }}
+{{- if eq .Values.global.otds.enabled true }}
+  - host: {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otdsPublicUrl "" }}
+    http:
+      paths:
+      - backend:
+        {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: {{ include "otxecm.otdsServiceName" . }}
+            port:
+              number: {{ .Values.otds.otdsws.port }}
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: {{ include "otxecm.otdsServiceName" . }}
+          servicePort: {{ .Values.otds.otdsws.port }}
+        {{- end }}
+{{- end }}
+{{- if eq .Values.global.otac.enabled true }}
+  - host: {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otacPublicUrl "" }}
+    http:
+      paths:
+      - backend:
+        {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: otac-0
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: otac-0
+          servicePort: 8080
+        {{- end }}
+{{- end }}
+{{- if eq .Values.global.otacc.enabled true }}
+  - host: {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otaccPublicUrl "" }}
+    http:
+      paths:
+      - backend:
+        {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: otacc
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: otacc
+          servicePort: 8080
+        {{- end }}
+{{- end }}
+{{- if eq .Values.global.otpd.enabled true }}
+  - host: {{ regexReplaceAllLiteral "^http(s?)://" .Values.global.otpdPublicUrl "" }}
+    http:
+      paths:
+      - backend:
+        {{- if .Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: {{ .Values.otpd.serviceName }}
+            port:
+              number: {{ .Values.otpd.port }}
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: {{ .Values.otpd.serviceName }}
+          servicePort: {{ .Values.otpd.port }}
+        {{- end }}
+{{- end }}
+{{- if and (.Values.global.otiv.enabled) (not .Values.otiv.ingress.enabled) }}
+{{- range $otivComponent := $otivComponents }}
+  - host: otiv-{{ $otivComponent }}{{ template "otiv.ingress.suffix" $ }}
+    http:
+      paths:
+      - backend:
+        {{- if $.Capabilities.APIVersions.Has "networking.k8s.io/v1/Ingress" }}
+          service:
+            name: otiv-{{ $otivComponent }}
+            port:
+              name: http
+        path: /
+        pathType: Prefix
+        {{- else }}
+          serviceName: otiv-{{ $otivComponent }}
+          servicePort: http
+        {{- end }}
+{{- end }}
+{{- end }}
+---
+{{- end }}

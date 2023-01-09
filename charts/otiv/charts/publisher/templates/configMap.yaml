@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: {{ include "base.resource.name" . }}-configmap
+data:
+    AJIRA_HOST: {{ .Values.global.msgHost }}
+    AJIRA_VHOST: /
+    AJIRA_PORT: '5672'
+    AJIRA_USER: {{ .Values.global.msgUser }}
+    CLUSTER_DISCOVERY: kubernetes
+    COUNTER: '{{ .Values.global.counter }}'
+    ENABLE_OAUTH: 'true'
+    OTDS_ORIGIN: {{ template "otds.api.url" .}}
+    KUB_NAMESPACE: {{ .Release.Namespace }}
+    LOG_OUT: {{ include "log.output" . }}
+{{- if .Values.writeMarkups }}
+    WRITE_MARKUPS: '{{ .Values.writeMarkups }}'
+{{- end }}
+{{- if .Values.loglevel.artifacts }}
+    LOG_LEVEL_ARTIFACTS: {{ .Values.loglevel.artifacts }}
+{{- end }}
+{{- if .Values.loglevel.config }}
+    LOG_LEVEL_CONFIG: {{ .Values.loglevel.config }}
+{{- end }}
+{{- if .Values.loglevel.conversion }}
+    LOG_LEVEL_CONVERSION: {{ .Values.loglevel.conversion }}
+{{- end }}
+{{- if .Values.loglevel.discovery }}
+    LOG_LEVEL_DISCOVERY: {{ .Values.loglevel.discovery }}
+{{- end }}
+{{- if .Values.loglevel.metrics }}
+    LOG_LEVEL_METRICS: {{ .Values.loglevel.metrics }}
+{{- end }}
+{{- if .Values.loglevel.netty }}
+    LOG_LEVEL_NETTY: {{ .Values.loglevel.netty }}
+{{- end }}
+{{- if .Values.loglevel.retrieval }}
+    LOG_LEVEL_RETRIEVAL: {{ .Values.loglevel.retrieval }}
+{{- end }}
+{{- if .Values.loglevel.sequencing }}
+    LOG_LEVEL_SEQUENCING: {{ .Values.loglevel.sequencing }}
+{{- end }}
+{{- if .Values.loglevel.spi }}
+    LOG_LEVEL_SPI: {{ .Values.loglevel.spi }}
+{{- end }}
+{{- if .Values.loglevel.spiAjira }}
+    LOG_LEVEL_SPI_AJIRA: {{ .Values.loglevel.spiAjira }}
+{{- end }}
+{{- if .Values.loglevel.spiMkondo }}
+    LOG_LEVEL_SPI_MKONDO: {{ .Values.loglevel.spiMkondo }}
+{{- end }}
+{{- if .Values.loglevel.spiPithos }}
+    LOG_LEVEL_SPI_PITHOS: {{ .Values.loglevel.spiPithos }}
+{{- end }}
+{{- if .Values.loglevel.spiSoteria }}
+    LOG_LEVEL_SPI_SOTERIA: {{ .Values.loglevel.spiSoteria }}
+{{- end }}
+{{- if .Values.loglevel.system }}
+    LOG_LEVEL_SYSTEM: {{ .Values.loglevel.system }}
+{{- end }}
+{{- if .Values.loglevel.util }}
+    LOG_LEVEL_UTIL: {{ .Values.loglevel.util }}
+{{- end }}
+{{- if .Values.loglevel.vertx }}
+    LOG_LEVEL_VERTX: {{ .Values.loglevel.vertx }}
+{{- end }}
+{{- if .Values.loglevel.zmq }}
+    LOG_LEVEL_ZMQ: {{ .Values.loglevel.zmq }}
+{{- end }}
+    MARKUP_SERVICE_ORIGIN: http://otiv-markup:{{ .Values.markup.port }}
+    ARTIFACT_DELIVERY_PROFILE: mkondo
+    MKONDO_BLOB_BASE_URL: {{ $.Values.global.publicWebProtocol }}://otiv-asset{{ include "ingress.suffix" .}}/artifacts
+    MKONDO_BLOB_ROOTS: /var/mkondo/fs-0
+    MKONDO_STORAGE_DISABLED: 'false'
+    {{- template "new.relic.transform.config" . }}
+    PITHOS_HOST: {{ .Values.global.database.hostname }}
+    PITHOS_PROVIDER: postgresql
+    PITHOS_PORT: '{{ .Values.global.database.port }}'
+    PITHOS_DB: {{ .Values.global.database.ivName }}
+    PITHOS_PSQL_DB: {{ .Values.global.database.adminDatabase }}
+    PITHOS_USER: {{ .Values.global.database.adminUsername }}
+    PITHOS_USE_SSL: '{{ .Values.global.database.ssl }}'
+    PITHOS_SSL_MODE: '{{ .Values.global.database.sslMode }}'
+    INTERNAL_REST_PORT: '{{ .Values.service.targetPort }}'
+    {{- template "proxy.url.params" . }}
+    SOTERIA_PROVIDER: otds
+    {{- template "timezone" . }}
+    {{ template "trusted.source.origins" . }}
+    __VERSION__: '{{ template "version.stamp" . }}'

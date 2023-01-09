@@ -1,0 +1,73 @@
+# Default values for publisher.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicas: 1
+
+image:
+  name: otiv-publisher
+
+# potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+loglevel:
+  example: DEBUG
+  #artifacts: DEBUG
+  #config: DEBUG
+  #conversion: DEBUG
+  #discovery: DEBUG
+  #metrics: DEBUG
+  #netty: DEBUG
+  #retrieval: DEBUG
+  #sequencing: DEBUG
+  #spi: DEBUG
+  #spiAjira: DEBUG
+  #spiMkondo: DEBUG
+  #spiPithos: DEBUG
+  #spiSoteria: DEBUG
+  #system: DEBUG
+  #util: DEBUG
+  #vertx: DEBUG
+  #zmq: DEBUG
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9092
+
+resources:
+  enabled: false
+  requests:
+    cpu: 200m
+    memory: 0.5Gi
+  limits:
+    cpu: 1
+    memory: 1.5Gi
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 500
+  timeoutSeconds: 2
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 120
+  timeoutSeconds: 1
+  periodSeconds: 15
+  failureThreshold: 3
+
+## Available as of kubernetes version 1.16
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  timeoutSeconds: 2
+  periodSeconds: 10
+  failureThreshold: 7
+
+markup:
+  port: 80
+
+# set to true to add write_any_markups scope to the iv-publisher OAuth client
+#   this enables the publishing agent to create or update markups
+writeMarkups: false
+

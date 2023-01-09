@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: {{ include "base.resource.name" . }}-configmap
+data:
+    AUTH_TOKEN_URL: {{ template "otds.api.url" .}}/oauth2/token
+    LOG_LEVEL: '{{ .Values.loglevel }}'
+    ARTIFACT_BASE_URL_PUBLIC: {{ $.Values.global.publicWebProtocol }}://otiv-asset{{ include "ingress.suffix" .}}/artifacts
+    ARTIFACT_BASE_URL: http://otiv-asset/artifacts
+    CORS_ADDITIONAL_HEADERS_LIST: '{{ .Values.global.customHttpHeaders }}'
+    COUNTER: '{{ .Values.global.counter }}'
+    {{ template "cors.config" . }}
+    {{ template "forwarded.config" . }}
+    {{- template "new.relic.viewing.config" . }}
+{{- if .Values.nodeOptions }}
+    NODE_OPTIONS: '{{ .Values.nodeOptions }}'
+{{- end }}
+    OTDS_CERT_UPDATE_INTERVAL: '{{ .Values.global.otdsCertUpdateInterval }}'
+    OTDS_ORIGIN: {{ template "otds.api.url" .}}
+    PORT: '{{ .Values.service.targetPort }}'
+    PUBLICATION_AUTHORITY: http://otiv-publication:{{ .Values.publication.port }}
+    SEARCH_AUTHORITY: {{ $.Values.global.publicWebProtocol }}://{{ include "ingress.fqdn" . }}
+    {{- template "timezone" . }}
+    __VERSION__: '{{ template "version.stamp" . }}'

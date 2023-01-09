@@ -1,0 +1,141 @@
+# Content Server settings file yaml - frontend
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-frontend-configmap
+data:
+  config.yaml: |-
+{{ toYaml .Values.config | indent 4 }}
+    threadsNumber: {{ .Values.contentServerFrontend.threadsNumber }}
+---
+
+# Content Server settings file yaml - admin
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-admin-configmap
+data:
+  config.yaml: |-
+{{ toYaml .Values.config | indent 4 }}
+    threadsNumber: {{ .Values.contentServerAdmin.threadsNumber }}
+---
+
+# Content Server settings file yaml - backend search
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-backend-search-configmap
+data:
+  config.yaml: |-
+{{ toYaml .Values.config | indent 4 }}
+    threadsNumber: {{ .Values.contentServerBackendSearch.threadsNumber }}
+---
+
+{{- if or (eq .Values.config.documentStorage.type "otac") (eq .Values.config.documentStorage.type "otacc") }}
+########################################################################
+# {{ .Values.config.otac.certFilename }} security certificate to be used with Archive Center.
+# You can use the Archive Center cert-tool to generate your own
+# certificate and place it in the chart directory. The filename is
+# specified in the values.yaml file.
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-ac-cert-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+{{- if eq .Values.config.documentStorage.type "otac" }}
+data:
+  {{- (.Files.Glob .Values.config.otac.certFilename).AsConfig | nindent 2 }}
+{{- if (eq (.Files.Get .Values.config.otac.certFilename) "") }}
+{{- fail "A valid certificate file is required when deploying with otac storage type. Please make sure the file specified by .Values.config.otac.certFilename is valid." }}
+{{- end }}
+{{- else if eq .Values.config.documentStorage.type "otacc" }}
+data:
+  {{- (.Files.Glob .Values.config.otacc.certFilename).AsConfig | nindent 2 }}
+{{- if (eq (.Files.Get .Values.config.otacc.certFilename) "") }}
+{{- fail "A valid certificate file is required when deploying with otacc storage type. Please make sure the file specified by .Values.config.otacc.certFilename is valid." }}
+{{- end }}
+{{- end }}
+---
+{{- end }}
+
+{{- if eq .Values.loadAdminSettings.enabled true }}
+########################################################################
+# This is the file containing admin settings to be applied to Content
+# Server on first container start.
+# See the statefulsets yaml for the required Content Server volume mount
+# and volume.
+# The filename is of the XML file is specified in the values.yaml file.
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-adminsettings-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+{{- if (eq (.Files.Get .Values.loadAdminSettings.filename) "") }}
+{{- fail "Please make sure the file specified by .Values.loadAdminSettings.filename is valid." }}
+{{- end }}
+  {{- (.Files.Glob .Values.loadAdminSettings.filename).AsConfig | nindent 2 }}
+---
+{{- end }}
+
+{{- if eq .Values.loadLicense.enabled true }}
+########################################################################
+# This is the file containing a license to be applied to Content
+# Server on first container start.
+# The filename is of the XML file is specified in the values.yaml file.
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-license-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+{{- if not .Values.loadLicense.filename }}
+{{- fail "otcs license filename is not specified, set it using otcs.loadLicense.filename " }}
+{{- end }}
+{{- if not (.Files.Glob .Values.loadLicense.filename) }}
+{{- fail "Unable to find license file specified by .Values.loadLicense.filename" }}
+{{- end }}
+  {{- (.Files.Glob .Values.loadLicense.filename).AsConfig | nindent 2 }}
+---
+{{- end }}
+
+{{- if eq .Values.config.database.oracle.loadTnsnames.enabled true }}
+########################################################################
+# Tnsnames.ora ##UPDATE
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-tnsnames-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  {{- (.Files.Glob .Values.config.database.oracle.loadTnsnames.filename).AsConfig | nindent 2 }}
+---
+{{- end }}
+
+{{- if eq .Values.fluentbit.enabled true }}
+########################################################################
+# This configmap contains all the configuration data related to fluentbit.
+# Each .conf file under otcs/fluentbit will be a field in this config map.
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-fluentbit-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  include.conf: |
+    {{- if has "security" .Values.fluentbit.logsToMonitor }}
+    @INCLUDE security-logs-filter.conf
+    {{- end }}
+  {{- (.Files.Glob "fluentbit/**.conf").AsConfig | nindent 2 }}
+---
+{{- end }}

@@ -1,0 +1,16 @@
+########################################################################
+# OpenText PowerDocs Database Kubernetes Configurations
+########################################################################
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+data:
+  ## Postgres initdb recommends a subdirectory be created to contain the
+  ## data, rather than the direct mount point
+  PGDATA: {{ .Values.directory }}
+  POSTGRES_USER: {{ .Values.user }}
+  TZ: {{ .Values.config.timeZone }}
+---

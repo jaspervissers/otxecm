@@ -1,0 +1,93 @@
+---
+!!com.opentext.otds.configurator.Configuration
+systemAttributes:
+  - name: otdsautoconfig.test.1
+    value: test1
+
+trustedSites:
+  - https://autoConfiguredSite1/mypath
+  - https://autoConfiguredSite2/mypath
+
+#Disable the http.negotiate auth handler
+authHandlers:
+- _name: http.negotiate
+  _id: http.negotiate
+  _description: Handles "Negotiate" authentication with the browser.
+  _class: com.opentext.otds.as.drivers.http.NegotiateHttpAuthenticationHandler
+  _enabled: false
+  _priority: 20
+  _scope:
+  _properties:
+    - _key: com.opentext.otds.as.drivers.http.negotiate.enablemobile
+      _value: 'false'
+  _authPrincipalAttrNames:
+    - oTExternalID4
+
+partitions:
+  - name: autoConfigPartition
+
+oauthClients:
+  - name: autoConfigClient1
+    secret: eecec09ebfb5196bb1dd
+    confidential: true
+
+users:
+  - name: autoConfigUser1
+    userPartitionID: autoConfigPartition
+    values: 
+     - name: userPassword
+       values: 
+         - Password@123
+
+groups:
+  - name: autoConfigGroup1
+    userPartitionID: autoConfigPartition
+    users: 
+     - autoConfigUser1@autoConfigPartition
+    groups: 
+     - autoConfigGroup2@autoConfigPartition
+    
+  - name: autoConfigGroup2
+    userPartitionID: autoConfigPartition
+    
+  
+roles:
+  - name: autoConfigRole1
+    userPartitionID: autoConfigPartition
+    users: 
+     - autoConfigUser1@autoConfigPartition
+    groups: 
+     - autoConfigGroup1@autoConfigPartition
+
+resources:
+  - resourceName: autoConfigResource1
+    description: auto-configured resource 1
+    logoutURL: http://mylogouturl
+    logoutMethod: GET
+    userAttributeMapping:
+     - sourceAttr: 
+        - oTExternalID3
+       destAttr: __NAME__
+       mappingFormat: "%s"
+    groupAttributeMapping:
+     - sourceAttr: 
+        - cn
+       destAttr: __NAME__
+       mappingFormat: "%s"
+
+accessRoles:
+  - name: autoConfigAccessRole
+    accessRoleMembers:
+        userPartitions:
+         - userPartition: autoConfigPartition
+        users:
+         - name: autoConfigUser1
+           userPartition: autoConfigPartition
+        groups:
+         - name: autoConfigGroup1
+           userPartition: autoConfigPartition
+        roles:
+         - name: autoConfigRole1
+           userPartition: autoConfigPartition
+    resources:
+      - resourceName: autoConfigResource1

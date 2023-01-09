@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Chart.Name }}-configmap
+  labels:
+     app: {{ .Chart.Name }}
+data:
+  ACCEPT_LICENSE_AGREEMENT: "yes"
+  CLOUD_URL: {{ required "A valid cloud.url is required!" .Values.cloud.url | quote }}
+  BA_USER: {{ required "A valid cloud.baUser is required!" .Values.cloud.baUser | quote }}
+{{- if .Values.cloud.insecure }}
+{{- if eq .Values.cloud.insecure true }}
+  ACCEPT_INSECURE_CLOUD_CERT: "1"
+{{- end }}
+{{- end }}
+{{- if .Values.connector.reregister }}
+{{- if eq .Values.connector.reregister true }}
+  REREGISTER: "1"
+{{- end }}
+{{- end }}
+{{- if .Values.connector.httpsProxy }}
+  ACC_HTTPS_PROXY: {{ required "A valid httpsProxy is required!" .Values.connector.httpsProxy | quote }}
+{{- end }}
+  LOG_LEVEL: {{ required "A valid connector.loglevel is required!" .Values.connector.loglevel | quote }}

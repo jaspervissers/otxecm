@@ -1,0 +1,5 @@
+apiVersion: v2
+appVersion: 22.3.0
+description: OpenText PowerDocs is a service for document generation
+name: otpd
+version: 22.3.0

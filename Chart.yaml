@@ -1,0 +1,23 @@
+apiVersion: v2
+description: A Helm Chart for OpenText Extended ECM
+name: otxecm
+version: 22.3.0
+dependencies:
+  - name: otds
+    condition: global.otds.enabled
+  - name: otac
+    condition: global.otac.enabled
+  - name: otac-db
+    condition: global.otac-db.enabled
+  - name: otacc
+    condition: global.otacc.enabled
+  - name: otcs
+    condition: global.otcs.enabled
+  - name: otcs-db
+    condition: global.otcs-db.enabled
+  - name: otiv
+    condition: global.otiv.enabled
+  - name: otpd
+    condition: global.otpd.enabled
+  - name: otpd-db
+    condition: global.otpd-db.enabled

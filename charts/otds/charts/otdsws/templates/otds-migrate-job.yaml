@@ -1,0 +1,177 @@
+{{- if and .Values.migration.enabled .Values.migration.preUpgradeJob.enabled }}
+# Service Account required for the pre-upgrade migrate job
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  name: migrate-job-sa
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+
+---
+# RBAC role to be assigned to service account for the pre-upgrade migrate job
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  name: migrate-job-role
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-6"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec", "configmaps", "secrets", "persistentvolumeclaims", "services"]
+  verbs: ["list", "get", "delete", "create"]
+- apiGroups: ["apps"]
+  resources: ["statefulsets", "statefulsets/scale", "deployments", "deployments/scale"]
+  verbs: ["list", "get", "delete", "create", "patch"] 
+- apiGroups: ["batch"]
+  resources: ["jobs", "jobs/exec"]
+  verbs: ["list", "get", "delete", "create", "patch"]
+
+---
+# Binding the role with the service account for the pre-upgrade job
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  name: migrate-job-rbac
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: migrate-job-role
+subjects:
+- kind: ServiceAccount
+  name: migrate-job-sa
+
+---
+# Pre-upgrade job definition
+apiVersion: batch/v1
+kind: Job
+metadata:
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  name: otds-migrate-job
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-4"
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      restartPolicy: Never
+      serviceAccountName: migrate-job-sa
+      volumes:
+        - name: {{ template "otdsws.name" . }}-migrate-volume
+          secret:
+            secretName: {{ template "otdsws.name" . }}-migrate-job-yaml          
+      containers:
+      - name:  otds-migrate-container
+        {{- $imageTag := include "preupgrade.job.image.tag" . -}}
+{{- if .Values.migration.preUpgradeJob.image.source }}
+{{- if not (regexFind "\\/$" .Values.migration.preUpgradeJob.image.source ) }}
+        image: {{ .Values.migration.preUpgradeJob.image.source }}/{{ .Values.migration.preUpgradeJob.image.name }}:{{ $imageTag }}
+{{- else }}
+        image: {{ .Values.migration.preUpgradeJob.image.source }}{{ .Values.migration.preUpgradeJob.image.name }}:{{ $imageTag }}
+{{- end }}
+{{- else }}
+        image: {{ .Values.migration.preUpgradeJob.image.name }}:{{ $imageTag }}
+{{- end }}
+        env:
+{{- if .Values.migration.usingLegacyImage }}        
+        - name: PVC_NAME
+          value: {{ .Values.migration.legacyImagePVC }}
+{{- end }}
+{{- if .Values.migration.serviceName }}        
+        - name: OPENDJ_SVC_NAME
+          value: {{ .Values.migration.serviceName }}
+{{- end }}
+        volumeMounts:
+        - name: {{ template "otdsws.name" . }}-migrate-volume
+          mountPath: /tmp/migrate   
+        command: ["sh"]
+        args: [ "-c",
+                "PRE_JOB_NAME=otds-migrate-job;
+                 {{- if .Values.migration.usingLegacyImage }}
+                  output=`kubectl get pvc $PVC_NAME`;
+                  if [ \"$?\" -eq \"0\" ];
+                  then
+                      statefulset=`kubectl get statefulset | grep otds | sed -n 1p | awk '{print $1}'`;
+                      if [ ! -z \"$statefulset\" ]; 
+                      then
+                        echo Stop existing statefulset $statefulset;
+                        kubectl scale statefulset $statefulset --replicas=0;
+                        until [ \"$(kubectl get statefulset | grep otds | sed -n 1p | awk '{print $2}')\" = \"0/0\" ]; do echo Waiting for statefulset to stop completely...;sleep 3;done;
+                      fi;
+                      echo Start database migrate job;
+                      kubectl create -f /tmp/migrate/migrate-job-configmap.yaml;
+                      kubectl create -f /tmp/migrate/migrate-job-secrets.yaml;
+                      kubectl apply -f /tmp/migrate/migrate-job.yaml;
+                      until [ \"$(kubectl exec `kubectl get pods -l job-name=migrate-job -o json | jq -r '.items[0].metadata.name'` -- test -f /opt/tomcat/logs/completed.log && echo $? || echo $?)\" = \"0\" ]; do echo Waiting for migrate-job completed...; sleep 3; done;
+                      echo Migration completed, cleaning up resources...;
+                      kubectl delete job migrate-job;
+                      kubectl delete configmap migrate-job-configmap;
+                      kubectl delete secret migrate-job-secrets;
+                  else
+                      echo PVC $PVC_NAME does not exist, $PRE_JOB_NAME exit.;
+                  fi;
+                 {{- else if .Values.migration.opendjUri }}
+                      echo Start database migrate job;
+                      kubectl create -f /tmp/migrate/migrate-job-configmap.yaml;
+                      kubectl create -f /tmp/migrate/migrate-job-secrets.yaml;
+                      kubectl apply -f /tmp/migrate/migrate-job.yaml;
+                      until [ \"$(kubectl exec `kubectl get pods -l job-name=migrate-job -o json | jq -r '.items[0].metadata.name'` -- test -f /opt/tomcat/logs/completed.log && echo $? || echo $?)\" = \"0\" ]; do echo Waiting for migrate-job completed...; sleep 3; done;
+                      echo Migration completed, cleaning up resources...;
+                      kubectl delete job migrate-job;
+                      kubectl delete configmap migrate-job-configmap;
+                      kubectl delete secret migrate-job-secrets;
+                 {{- else }}
+                  output=`kubectl get service $OPENDJ_SVC_NAME`;
+                  if [ \"$?\" -eq \"0\" ];
+                  then                       
+                      deployment=`kubectl get deployment | grep otds | sed -n 1p | awk '{print $1}'`;
+                      if [ ! -z \"$deployment\" ]; 
+                      then
+                        echo Stop $deployment front-end replicas;
+                        kubectl scale deployment $deployment --replicas=0;
+                        until [ \"$(kubectl get deployment | grep otds | sed -n 1p | awk '{print $2}')\" = \"0/0\" ]; do echo Waiting for otds front-end to stop completely...;sleep 3;done;
+                      fi;                          
+                      echo Start database migrate job;
+                      kubectl create -f /tmp/migrate/migrate-job-configmap.yaml;
+                      kubectl create -f /tmp/migrate/migrate-job-secrets.yaml;
+                      kubectl apply -f /tmp/migrate/migrate-job.yaml;
+                      until [ \"$(kubectl exec `kubectl get pods -l job-name=migrate-job -o json | jq -r '.items[0].metadata.name'` -- test -f /opt/tomcat/logs/completed.log && echo $? || echo $?)\" = \"0\" ]; do echo Waiting for migrate-job completed...; sleep 3; done;
+                      echo Migration completed, cleaning up resources...;
+                      kubectl delete job migrate-job;
+                      kubectl delete configmap migrate-job-configmap;
+                      kubectl delete secret migrate-job-secrets;                    
+                  else
+                    echo OpenDJ service does not exist, $PRE_JOB_NAME exit.;
+                  fi;                      
+                 {{- end }}" ]
+---
+{{- end -}}

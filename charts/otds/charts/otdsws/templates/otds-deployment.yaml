@@ -1,0 +1,207 @@
+{{/*
+Make this file only relevant if we want to deploy a 
+OTDS Web Services container for OpenText Directory Services as part of this Helm Chart:
+*/}}
+{{- if eq .Values.enabled true }}
+
+########################################################################
+# OpenText Directory Services (OTDS)
+########################################################################
+{{- if eq .Values.statefulSet true }}
+kind: StatefulSet
+{{- else }}
+kind: Deployment
+{{- end }}
+apiVersion: apps/v1
+metadata:
+  name: {{ template "otdsws.name" . }}
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  labels:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+spec:
+{{- if eq .Values.statefulSet true }}
+  serviceName: {{ template "otdsws.service" . }}
+{{- end }}
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{ toYaml . | nindent 8 }}
+        {{- end }}     
+    spec:
+      {{- if .Values.otdsdb.enableCustomizedTruststore }}    
+      initContainers:
+        - name: init-certs
+        {{- if .Values.image.source }}
+          {{- if (regexFind "\\/$" .Values.image.source ) }}
+          image: {{ printf "%s%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+          {{- else }}
+          image: {{ printf "%s/%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+          {{- end }}
+        {{- else }}
+          image: {{ printf "%s:%s" $.Values.image.name $.Values.image.tag | quote }}
+        {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          name: init-certs
+          command:
+          - /bin/bash
+          - -ec
+          - |-
+            if [[ -f "$JAVA_HOME/lib/security/cacerts" ]]; then
+                cp "$JAVA_HOME/lib/security/cacerts" "/opt/config/truststore/truststore.jks"
+            else
+                echo "Couldn't find the expected CA truststore files! They are mandatory when encryption via TLS is enabled."
+                exit 1
+            fi
+            if [[ -f "/opt/config/certificates/dbRootCA.crt" ]]; then
+                keytool -import -file "/opt/config/certificates/dbRootCA.crt" \
+                          -keystore "/opt/config/truststore/truststore.jks" \
+                          -storepass "changeit" \
+                          -noprompt
+            else
+                echo "Couldn't find /opt/config/certificates/dbRootCA.crt! Please mount the certs volume."
+                exit 1
+            fi            
+          volumeMounts:
+          {{- if .Values.otdsdb.sslDBRootCert }}          
+          - name: {{ template "otdsws.name" . }}-certs-volume
+            mountPath: /opt/config/certificates
+          {{- end }}          
+          - name: {{ template "otdsws.name" . }}-truststore-volume
+            mountPath: /opt/config/truststore          
+      {{- end }}
+{{- if eq .Values.migration.enabled true }}
+{{- if and .Values.migration.usingLegacyImage (not .Values.migration.preUpgradeJob.enabled) }}
+      volumes:
+        - name: {{ template "otdsws.name" . }}-data-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.migration.legacyImagePVC }}
+{{- end }}
+{{- else }}
+      volumes:
+{{- if eq .Values.enableBootstrapConfig true }}      
+        - name: {{ template "otdsws.name" . }}-bootstrap-volume
+          secret:
+            secretName: {{ template "otdsws.name" . }}-bootstrap
+{{- end }}
+{{- end }}
+{{- if .Values.otdsdb.sslDBRootCert }}      
+        - name: {{ template "otdsws.name" . }}-certs-volume
+          secret:
+            secretName: {{ template "otdsws.name" . }}-certs   
+{{- end }}
+{{- if .Values.otdsdb.enableCustomizedTruststore}}
+        - name: {{ template "otdsws.name" . }}-truststore-volume
+          emptyDir: {}     
+{{- end }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      containers:
+      - name: {{ template "otdsws.name" . }}
+        envFrom:
+        - configMapRef:
+            name: {{ template "otdsws.name" . }}-configmap
+{{- if not .Values.customSecretName }}
+        - secretRef:
+            name: {{ template "otdsws.name" . }}-secrets
+{{- end }}
+{{- if .Values.customSecretName }}
+        env:
+        - name: OTDS_JAKARTA_PERSISTENCE_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.customSecretName }}
+              key: OTDS_JAKARTA_PERSISTENCE_JDBC_PASSWORD
+        - name: OTDS_DIRECTORY_BOOTSTRAP_INITIALPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.customSecretName }}
+              key: OTDS_DIRECTORY_BOOTSTRAP_INITIALPASSWORD
+        - name: OTDS_DIRECTORY_BOOTSTRAP_CRYPTSECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.customSecretName }}
+              key: OTDS_DIRECTORY_BOOTSTRAP_CRYPTSECRET
+{{- if and .Values.migration.enabled (not .Values.migration.usingLegacyImage) (not .Values.migration.preUpgradeJob.enabled) }}            
+        - name: OTDS_DIRECTORY_BOOTSTRAP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.customSecretName }}
+              key: OTDS_DIRECTORY_BOOTSTRAP_PASSWORD
+{{- end }}              
+{{- end }} 
+{{- if eq .Values.migration.enabled true }}
+        volumeMounts:
+{{- if and .Values.migration.usingLegacyImage (not .Values.migration.preUpgradeJob.enabled) }}
+          - name: {{ template "otdsws.name" . }}-data-volume
+            mountPath: /opt/otds
+{{- end }}
+{{- else }}
+        volumeMounts:
+{{- if eq .Values.enableBootstrapConfig true }}        
+          - name: {{ template "otdsws.name" . }}-bootstrap-volume
+            mountPath: /opt/config/bootstrap
+{{- end }}
+{{- end }}
+{{- if .Values.otdsdb.sslDBRootCert }}        
+          - name: {{ template "otdsws.name" . }}-certs-volume
+            mountPath: /opt/config/certificates
+{{- end }}
+{{- if .Values.otdsdb.enableCustomizedTruststore}}
+          - name: {{ template "otdsws.name" . }}-truststore-volume
+            mountPath: /opt/config/truststore
+{{- end }}
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - /opt/scripts/healthcheck.sh
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - /opt/scripts/healthcheck.sh
+          initialDelaySeconds: 240
+          periodSeconds: 10
+          timeoutSeconds: 5
+{{- if .Values.image.source }}
+    {{- if (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ printf "%s%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+    {{- else }}
+        image: {{ printf "%s/%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+    {{- end }}
+{{- else }}
+        image: {{ printf "%s:%s" $.Values.image.name $.Values.image.tag | quote }}
+{{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+{{- if eq .Values.resources.enabled true }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+{{- end }}
+        ports:
+        - containerPort: {{ .Values.targetPort }}
+      hostname: {{ .Values.hostname }}
+{{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecret }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,97 @@
+# Default values for viewer.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+loglevel: 30
+# fatal, error, warn, info, debug, trace
+newRelic:
+  loglevel: debug
+
+disableForwarding: true
+
+replicas: 1
+
+image:
+  name: otiv-viewer
+
+#command: '[ "tail",  "-f",  "/dev/null" ]'
+
+service:
+  type: ClusterIP
+  albType: NodePort
+  port: 80
+  targetPort: 3000
+
+resources:
+  enabled: false
+  requests:
+    cpu: 20m
+    memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 256Mi
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 100
+  timeoutSeconds: 1
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  timeoutSeconds: 1
+  periodSeconds: 15
+  failureThreshold: 2
+
+## Available as of kubernetes version 1.16
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 20
+  timeoutSeconds: 1
+  periodSeconds: 5
+  failureThreshold: 5
+
+ingress:
+  enabled: true
+
+# If set to true, Forwarded/X-Forwarded-Host header whitelist enforcement is enabled
+#   and the services validate that the Forwarded/X-Forwarded-* headers adhere to what's 
+#   allowed by the forwardedHostsList or forwardedHostsRegex properties.
+#
+# If set to true and the forwardedHostsList and forwardedHostsRegex are not defined 
+#    or have been defined with an invalid syntax, the services will fail to start.
+# If both of these properties are configured, forwardedHostsRegex takes precedence.
+# The Forwarded/X-Forwarded-Host headers in incoming requests that do not match the
+#    properties whitelist criteria are ignroed.
+# If not defined here, corresponding global property values are used
+#enforceForwardedHosts: false
+
+# a comma seperated list of FQDNs (cannot specify protocols such as https) that are used
+#   for validating the Forwarded/X-Forwarded-* headers.
+#forwardedHostsList:
+
+# a regex pattern to match FQDNs
+# The metacharacter * is a modifier and matches the preceeding character 0 or more times;
+#  so * needs to be after another character; typically this will be the metacharacter . (dot)
+#  which represents any single character, e.g.: .*site.sample.*
+#forwardedHostsRegex:
+
+# if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+#  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+# If not defined here, corresponding global property values are used
+#enforceCorsOrigins: false
+
+# a comma seperated list of servers that OTIV services will allow origin requests from
+# each origin should start with https:// or http://
+#corsOriginsList:
+
+# a regex pattern for servers that OTIV services will allow origin requests from
+# The metacharacter * is a modifier and matches the preceeding character 0 or more times;
+#  so * needs to be after another character; typically this will be the metacharacter . (dot)
+#  which represents any single character. An example value would be: .*site.sample.*
+#corsOriginsRegex:
+
+# If set, the NODE_OPTIONS env variable will be set with the value
+nodeOptions:

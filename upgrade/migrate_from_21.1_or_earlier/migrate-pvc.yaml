@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cs-persist-otcs-admin-0
+  annotations:
+    "helm.sh/hook": pre-upgrade
+spec:
+  storageClassName: {{ .Values.otcs.storageClassName | quote }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.otcs.csPersist.storage }}
+---
+
+# This section must be copied once for each otcs frontend replica
+# For example, if you have otcs-frontend-0 and otcs-frontend-1 then you must copy the section below
+# and replace otcs-frontend-0 with otcs-frontend-1
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cs-persist-otcs-frontend-0
+  annotations:
+    "helm.sh/hook": pre-upgrade
+spec:
+  storageClassName: {{ .Values.otcs.storageClassName | quote }}
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.otcs.csPersist.storage }}
+---

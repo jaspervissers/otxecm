@@ -1,0 +1,101 @@
+otiv:
+  viewer:
+    image:
+      tag: 22.3.0
+      name: otiv-viewer
+
+  markup:
+    image:
+      tag: 22.3.1
+      name: otiv-markup
+
+  config:
+    image:
+      tag: 22.3.0
+      name: otiv-config
+
+  highlight:
+    image:
+      tag: 22.3.0
+      name: otiv-highlight
+
+  metis:
+    image:
+      tag: 22.3.0
+      name: otiv-metis
+
+  publication:
+    image:
+      tag: 22.3.0
+      name: otiv-publication
+
+  publisher:
+    image:
+      tag: 22.3.1
+      name: otiv-publisher
+
+  asset:
+    image:
+      tag: 22.3.0
+      name: otiv-asset
+
+  amqp:
+    image:
+      tag: 22.3.1
+      name: otiv-amqp
+
+otcs:
+  image:
+    tag: 22.3.0
+    name: otxecm
+  fluentbit:
+    image:
+      tag: 1.8
+      name: fluent/fluent-bit
+
+otds:
+  otdsws:
+    image:
+      tag: 22.3.0
+      name: otds-server
+
+otac:
+  image:
+    tag: 22.3.0
+    name: otac
+
+otacc:
+  image:
+    tag: 22.3.2
+    name: otacc
+
+otpd:
+  image:
+    tag: 22.3.0
+    name: otpd
+
+otac-db:
+  image:
+    tag: 11.16
+    name: postgres
+
+otcs-db:
+  image:
+    tag: 11.16
+    name: postgres
+
+otpd-db:
+  image:
+    tag: 11.16
+    name: postgres
+
+global:
+  otdsInit:
+    image:
+      tag: 22.3.1
+      name: otiv-init-otds
+
+preUpgradeJob:
+  image:
+    tag:
+    name: bitnami/kubectl

@@ -1,0 +1,703 @@
+########################################################################
+# Values for otxecm helm chart (OpenText Extended ECM).
+#
+# The chart includes the following subcharts:
+# - otac - OpenText Archive Center
+# - otacc - OpenText Core Archive connector
+# - otac-db - Database for OpenText Archive Center
+# - otcs - OpenText Content Server
+# - otcs-db - Database for OpenText Content Server
+# - otds - OpenText Directory Services
+# - otiv - OpenText Intelligent Viewing
+# - otpd - OpenText PowerDocs
+# - otpd-db - Database for OpenText PowerDocs
+#
+# Values in the otxecm parent chart will override subchart values.
+# Only commonly used values are displayed for subcharts.
+# For further customization, view the subcharts for more options.
+# All image tags are stored in the otxecm-image-tags file located under otxecm
+# Image tags should be changed using otxecm-image-tags since tags do not exist in both parent and subchart values
+# However the postgresql and kubectl tags still exists only for th otiv parent values file since they are special tags
+#
+# Settings you should review:
+# - Mandatory: Docker Images: source paths, tags, pull secrets
+# - Important: Decide if you want to deploy Archive Center as storage backend via 'otac.enabled' and
+#   'otcs.config.documentStorage.type'.
+# - For production use:
+#   - passwords (currently all passwords are not defined)
+#   - generate your own Archive Center Certificate (*.pem file - name can be changed below) if you
+#     have Archive Center enabled. Archive Center provides a tool for this.
+#   - resource requirements (CPU, memory, storage, storage classes)
+#   - enable kubernetes ingress. You need a public IP, DNS entries for OTDS and Content Server,
+#     and a TLS (SSL) certificate. These are configured in the otxecm/platforms files 'global' section.
+# - Optional:
+#   - To automatically apply Content Server settings, export your settings from a reference
+#     Content Server system (XML) and place the XML file into the otcs chart with filename
+#     "adminSettings.xml", and enable the setting below:
+#     otcs.loadAdminSettings.enabled=true
+#   - To automatically apply a Content Server license, place a license.lic file into the otcs
+#     chart and update these settings:
+#     otcs.loadLicense.enabled=true
+#     otcs.loadLicense.filename=license.lic
+#
+########################################################################
+
+global:
+  otac:
+    ## enabled: controls if subchart is deployed
+    enabled: true
+  otds:
+    ## enabled: controls if subchart is deployed
+    enabled: true
+  otacc:
+    ## enabled: controls if subchart is deployed
+    enabled: false
+  otac-db:
+    ## enabled: controls if subchart is deployed
+    enabled: false
+  otcs:
+    ## enabled: controls if subchart is deployed
+    enabled: true
+  otcs-db:
+    ## enabled: controls if subchart is deployed
+    enabled: false
+  otiv:
+    ## enabled: controls if subchart is deployed
+    enabled: true
+  otpd:
+    ## enabled: controls if subchart is deployed
+    enabled: false
+  otpd-db:
+    ## enabled: controls if subchart is deployed
+    enabled: false
+  ########################################################################
+  # Global settings for OpenText Intelligent Viewing:
+  ########################################################################
+  ## set to name of external postgresql instance service or IP
+  ## (same as otcs.database.host defined in the section "Installing the Helm Charts")
+  ## otcs-db represents the container based OTCS db;
+  database:
+    hostname: otcs-db
+    ## set to name of database used to store IV data
+    ivName: otiv
+    ## Set to the postgres username
+    ## (same as otcs.database.user defined in the section "Installing the Helm Charts")
+    adminUsername: postgres
+    ##  postgresql port; defaults to 5432
+    #port: 5432
+    ## Database name that psql initially connects with prior to command execution
+    adminDatabase: postgres
+  ## otds-secrets and otcs-secrets secret is established by the otxecm helm chart
+  otdsSecretName: otdsws-secrets
+  otdsSecretKey:  OTDS_DIRECTORY_BOOTSTRAP_INITIALPASSWORD
+  dbSecretName:   otcs-secrets
+  dbSecretKey:    DB_ADMIN_PASSWORD
+  # determines if the ingress hostname includes the kubernetes namespace;
+  #  set to true if OTIV may be deployed to multiple namespaces within a cluster
+  ingressIncludeNamespace: false
+  ## indicates if otds is accessible via the k8s network; if set to false, global.otdsPublicUrl is used
+  otdsInCluster: true
+  ## the k8s url that OTDS is accessible at; only relevant if otdsInCluster is set to true
+  ## if property is not set, defaults to the otds service name for the cluster
+  otdsPrivateUrl:
+  # These properties take a comma delimited set of origins, i.e. http(s)://<hostname><:port>
+  # where sources files to be converted are allowed to be retrieved from.
+  # If neither trustedSourceOrigins nor trustedSourceOriginsAnonymous is set, then there is
+  # no origin restriction and IV attempts to retrieve source files from the requested
+  # file url; however, if the file url is at an http endpoint (as opposed to https), no
+  # Authorization header is sent with the request.
+  # If either property is defined, then retrievals are restricted to the defined origins.
+  # Origins defined in trustedSourceOrigins will pass along an Authorization header,
+  # whereas origins defined in trustedSourceOriginsAnonymous won't include an
+  # Authorization header. The same origin should not be listed in both properties.
+  trustedSourceOrigins: http://otcs-frontend
+  trustedSourceOriginsAnonymous:
+
+########################################################################
+# Pre-Upgrade Job
+########################################################################
+preUpgradeJob:
+  image:
+    source:
+    tag:
+    name:
+
+########################################################################
+# OpenText Directory Services subchart:
+########################################################################
+otds:
+  ## ingress.* define Ingress specific settings
+  ingress:
+    ## otds.ingress.enabled should use 'false' to allow the otxecm parent chart to control the ingress for otds.
+    enabled: false
+  otdsws:
+    otdsdb:
+      ## url: specifies the url used to connect to the DB for OTDS
+      ## The otcs-db is shared by default for demo purposes. Normally you would need to create the otds database
+      ## and user on the postgres server before deploying the helm chart.
+      url:  jdbc:postgresql://otcs-db:5432/otdsdb
+      username: postgres
+      password:
+    ## password: password of the administrator user
+    otadminPassword:
+    image:
+      source:
+      name: otds-server
+      tag:
+      pullPolicy: Always
+      pullSecret:
+    serviceAccountName: default
+    resources:
+      enabled: true
+      requests:
+        cpu: 1
+        memory: 2Gi
+      limits:
+        cpu: 2
+        memory: 3Gi
+      ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+      ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+      ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+      ## software running in the container.
+      timeZone: Etc/UTC
+    migration:
+      enabled: true
+      usingLegacyImage: true
+      legacyImagePVC: otds-data-otds-0 
+      serviceName: opendj
+      servicePort: 1389
+      opendjUri:
+      password: 
+      ## preUpgradeJob.* enables the one-step migration/deployment via pre-upgrade jobs
+      ## image.* defines the image parameters (i.e. the kubectl) used for pre-upgrade job
+      preUpgradeJob:
+        enabled: true
+        ## resources.* defines image parameters for data migrate job, for OpenDJ migrate 
+        ## the pod's memory should have at minimum 3Gi momory
+        resources:
+          requests:
+            cpu: 0.5
+            memory: 3Gi
+          limits:
+            cpu: 2
+            memory: 3Gi
+          ## jvmMemory sets the maximum amount of memory used by the OpenDJ migrate JVM
+          ## If this value is not set, the JVM memory will be set to 75% of preUgrateJob
+          ## resources.limits.memory. Memory amounts in M, Mi, G or Gi are supported
+          ## The JVM memory should be set to at least 2Gi as it will be split between OpenDJ and Tomcat.  
+          ## For JVM memory <= 4Gi, OpenDJ will take 1.5Gi. 
+          ## For 8Gi >= JVM memory > 4Gi, OpenDJ will take 2Gi.  
+          ## For JVM memory > 8Gi, OpenDJ will take 3Gi.          
+          jvmMemory:
+        ## image.* defines image parameters for pre-upgrade job
+        image:
+          source: docker.io
+          name: bitnami/kubectl
+          tag: latest
+
+########################################################################
+# OpenText Archive Server subchart:
+########################################################################
+otac:
+  service:
+    # custom annotations that need to be assigned to otac-0 service.
+    annotations: []
+    # below is an example
+    # - "imageregistry: \"https://registry.opentext.com/\""
+  port: 8080
+  protocol: http
+  ## archiveName: name of the otac archive used by Content Server
+  archiveName: A1
+  ## poolName: Name of the Archive Center pool used to store Content Server documents
+  poolName: Pool1
+  ## volumeName: Name of the Archive Center volume used to store Content Server documents
+  volumeName: Vol1 
+
+  image:
+    source:
+    name: otac
+    tag:
+    pullPolicy: Always
+    pullSecret:
+  serviceAccountName: default
+  resources:
+    enabled: true
+    requests:
+      cpu: 1
+      memory: 1.5Gi
+    limits:
+      cpu: 2
+      memory: 3Gi
+    storageClassName: standard
+    storageClassNameRWX: standard
+  volumes:
+      storage:
+        ## bdv: location for buffer device
+        bdv: 1Gi
+        ## dv: location for device
+        dv: 1Gi
+        ## sd: volume where all archive data is stored.
+        ## Must be large enough to store all incoming documents.
+        sd: 1Gi
+        ## logs: volume where all logs files are stored.
+        logs: 4Gi
+      accessMode: ReadWriteOnce
+  ## database.*: parameters to connect Archive Center with its database
+  database:
+    name: ac
+    hostname: otac-db
+    port: 5432
+    adminUsername: postgres
+    adminPassword:
+    username: ac
+    password:
+  otds:
+    ## admin: name of the administrator user (login)
+    admin: admin
+    ## password: password of the administrator user
+    password:
+  config:
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC
+
+########################################################################
+# OpenText Core Archive subchart:
+########################################################################
+otacc:
+  image:
+    source:
+    name: otacc
+    tag:
+  serviceAccountName: default
+  resources:
+    enabled: true
+    requests:
+      cpu: 1
+      memory: 4Gi
+    limits:
+      cpu: 2
+      memory: 4Gi
+    storageClassName: standard
+  port: 8080
+  cloud:
+    ## url: URL to Core Archive
+    url:
+    ## baUser: name of the Business Administrator
+    baUser:
+    ## baPassword: Base64-encoded password of the Business Administrator
+    baPassword:
+  connector:
+    ## password: password of the internal Core Archive Connector user.
+    ## This is a password of a user used internally by the Core Archive Connector.
+    ## This can later be changed in the Business Administration webclient under Settings -> Password
+    password:
+    ## publicHostname: full qualified domain name of the Kubernetes node on which the pod of the
+    ## Core Archive Connector runs.
+    publicHostname:
+
+########################################################################
+# OpenText Archive Server database subchart:
+########################################################################
+otac-db:
+  password:
+  image:
+    source:
+    name: postgres
+    tag:
+  ## enableLoadBalancer: enable load balancer to expose outside of kubernetes cluster
+  enableLoadBalancer: false
+  serviceAccountName: default
+  resources:
+    enabled: true
+    requests:
+      cpu: 0.5
+      memory: 500m
+    limits:
+      cpu: 2
+      memory: 4Gi
+    storage: 1Gi
+    storageClassName: standard
+  config:
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC
+
+########################################################################
+# OpenText Content Server subchart:
+########################################################################
+otcs:
+  service:
+    # custom annotations that need to be assigned to otcs-admin service.
+    admin:
+      annotations: []
+    # custom annotations that need to be assigned to otcs-backend-search service.
+    backendSearch:
+      annotations: []
+    # custom annotations that need to be assigned to otcs-frontend service.
+    frontend:
+      annotations: []
+    # below is an example
+    # - "imageregistry: \"https://registry.opentext.com/\""
+  pvc:
+    # custom labels that need to be applied to cs_persist pvcs
+    csPersist:
+      labels: []
+    # custom labels that need to be applied to cs logs pvcs
+    logs:
+      labels: []
+  # below is an example to add label
+  # velero will exclude pvc with below label from backup
+  # - "velero.io/exclude-from-backup: \"true\""
+  ingress:
+    enabled: true
+  serviceType:
+  image:
+    source:
+    name: otxecm
+    tag:
+    pullPolicy: Always
+    pullSecret:
+  ## serviceAccountName: name of the kubernetes service account the pods are running under
+  serviceAccountName: default
+  ## containerLogLevel: an environment variable that determines the otcs container setup logging level. DEBUG, INFO, WARNING, ERROR, CRITICAL.
+  ## If DEBUG is set, then Content Server thread and connect logs will be set at level '2 - INFO' during and after deployment.
+  ## WARNING: You will need to monitor logs after deployment when using DEBUG, or adjust log levels. Otherwise the log storage may fill up.
+  containerLogLevel: INFO
+  passwords:
+    ## adminPassword is the password of the Content Server 'admin' user
+    adminPassword:
+    ## baPassword is password of the Content Server 'bizadmin' user
+    baPassword:
+    ## appMonitorPassword is password of the Content Server 'appmonitor' user
+    appMonitorPassword:
+    ## scenarioOwnerPassword is password of the Content Server 'scenarioOwner' user
+    scenarioOwnerPassword:
+    ## dataEncryptionKey can't be changed after CS is first deployed, all instances must use the same DEK value
+    dataEncryptionKey: /opt/opentext/cs/ #DEK password
+    database:
+      ## adminPassword: password of the admin user of the database
+      adminPassword: ## Required if useExistingDatabase is false
+      ## password: password of the user that owns the database
+      password:
+    otacc:
+      ## corePassword: password of the otacc user, if that is being used for storage
+      corePassword:
+  ## config parameters are mounted as a yaml file inside the otcs container
+  config:
+    ## url: empty string can be used if using kubernetes LoadBalancer instead of Ingress
+    url: ""
+    database:
+      ## only postgres and oracle databases are supported
+      type: postgres
+      name: cs
+      hostname: otcs-db
+      port: 5432
+      ## useExistingDatabase: default value 'false' for primary instances, ignored for secondary instances.
+      useExistingDatabase: false
+      ## adminUsername: required if useExistingDatabase is false
+      adminUsername: postgres
+      ## pgdatabase: the default name of the database that we will be connecting into
+      adminPGDatabase: postgres
+      ## username: user that owns the Content Server database
+      username: cs
+      autoExtendDataFile: true
+      autoExtendLogFile: true
+      oracle:
+        ## This should be the service name of your pluggable database
+        serviceName: ORCLPDB1
+        ## Ignored unless loadTnsnames enabled true
+        ## Should be the connection alias for the pluggable database to use
+        tnsnamesConnectionAlias: ORCL
+        ## The path for the oracle database's data file. The folder must exist but the file cannot exist at the path.
+        dbDataFileSpec: /opt/oracle/cs.dbf
+        dbDataFileSize: 500
+        loadTnsnames:
+          enabled: false
+          filename: tnsnames.ora
+    documentStorage:
+      ## type: Default value 'otac' (Archive Server). Can also use 'efs', or 'database'. Can also use 'otacc' on OpenText hosted platform.
+      type: otac
+      ## efsPath: Required if documentStorage:type is 'efs'
+      efsPath: ""
+      ## efsStorage: Required if documentStorage:type is 'efs'
+      efsStorage: 1Gi
+      ## efsStorageClassName: Required if documentStorage:type is 'efs'
+      efsStorageClassName: nfs
+    ## deployCws: Controls deploying Content Web Services.
+    deployCws: true
+    ## createBizadmin: Creates user "bizadmin" in content server
+    createBizadminUser: false
+    ## createAppMonitorUser: Creates user "appmonitor" in content server
+    createAppMonitorUser: false
+    ## enableSecurityLogs: Enables Security Logs in content server
+    enableSecurityLogs: false
+    customizations:
+      ## set enable to true, if you want to install custom modules/language packs using init containers
+      enable: false
+      ## set includeManifestInitContainer to true and include init container image of manifest file under initContainers section,
+      ## if containers in cluster don't have access to internet
+      includeManifestInitContainer: false
+    ## deployBusinessScenarios will deploy the scenarios listed in the businessScenariosList
+    deployBusinessScenarios: false
+    ## List the scenario names in businessScenariosList array
+    ## businessScenariosList:
+    ## - OT-EAM - Business Scenario for Enterprise Asset Management
+    ## - OT-Teamspaces - Business Scenario for Teamspaces
+    ## - OT-Projects - Business Scenario for Projects
+    ## - OT-Agreements - Business Scenario for Agreements
+    ## - OT-HCM - Business Scenario for Extended ECM for SAP SuccessFactors
+    ## - OT-CRM - Business Scenario for Extended ECM For SalesForce
+    businessScenariosList: ["OT-EAM","OT-DMS","OT-Teamspaces","OT-Projects","OT-Agreements","OT-HCM","OT-CRM"]
+    
+    ## deployTransportPackage: deploy the transport packages if it is true
+    ## --set otcs.config.deployTransportPackage=true
+    deployTransportPackage: false
+    ## transportPackagesUrlList contains the list of package url's
+    ## eg: --set otcs.config.transportPackagesUrlList[0]='url' 
+    ## eg: --set otcs.config.transportPackagesUrlList[1]='url'
+    transportPackagesUrlList: []
+    ##validHttpRefererslist will add all the trusted sites given from helm to opentext.ini file
+    ## eg: --set otcs.config.validHttpRefererslist[0]="" 
+    ## eg: --set otcs.config.validHttpRefererslist[1]=""
+    validHttpRefererslist: []
+
+    ## proxy: Proxy values are optional, and are used in the [javaserver] section of the opentext.ini for otcs
+    ## These values should be strings like "thing.example.com", "8080"
+    #proxy:
+      #host:
+      #port:
+      #excludes:
+    otds:
+      ## signInUrl: Empty string can be used if using kubernetes LoadBalancer instead of Ingress
+      signInUrl: "" ## Both signInUrl and serverUrl are defaulted to otdsPublicUrl
+      serverUrl: "" ## serverUrl is only used when using external otds (global.otds.enabled=false)
+      displayName: "OpenText Extended ECM CE 22.3"
+      ## sameSite: sameSite values are optional
+      sameSite:
+        ## set enable to true, if you want OTDS sameSite attribute
+        enable: false
+        ## value is only used when otcs.config.otds.sameSite.enable: true
+        ## value: Default value 'None'. Can also use 'Strict', or 'Lax'.
+        ## If a invalid value is provided, it will default to None
+        value: None
+    ## otac: values for this section are required if documentStorage:type is 'otac'
+    otac:
+      ## url: do not modify unless you are using an external server not managed by the helm chart
+      url: http://otac-0:8080
+      ## if using 'otac' storage, this must match the archive name used by otac
+      archiveName: A1
+      certFilename: sp.pem
+    ## otacc: values for this section are required if documentStorage:type is 'otacc'
+    otacc:
+      ## url: do not modify unless you are using an external server not managed by the helm chart
+      url: http://otacc:8080
+      archiveName: A1
+      certFilename: sp.pem
+      coreUser: 'ba.test@username'
+      archiveDescription: 'MyArchive'
+      collectionName: 'Extended ECM'
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC
+  loadAdminSettings:
+    enabled: false
+  loadLicense:
+    enabled: false
+    filename:
+  ## storageClassName defines the kubernetes storage class for volumes
+  storageClassName: standard
+  contentServerFrontend:
+    ## replicas: controls the number of frontend pods. Add more for performance.
+    replicas: 1
+    resources:
+      enabled: true
+      requests:
+        cpu: 1
+        memory: 1.5Gi
+      limits:
+        cpu: 2
+        memory: 4Gi
+    ## threadsNumber: number of threads set in opentext.ini for otcs
+    threadsNumber: 8
+  contentServerAdmin:
+    sharedSearch:
+      storage: 1Gi
+    resources:
+      enabled: true
+      requests:
+        cpu: 1
+        memory: 3.5Gi
+      limits:
+        cpu: 2
+        memory: 6Gi
+    # number of threads set in opentext.ini for otcs
+    threadsNumber: 8
+  contentServerBackendSearch:
+    sharedSearch:
+      storage: 1Gi
+    ## replicas: controls the number of backend admin pods. Add more for performance.
+    replicas: 0
+    resources:
+      enabled: true
+      requests:
+        cpu: 1
+        memory: 1.5Gi
+      limits:
+        cpu: 2
+        memory: 4Gi
+    ## threadsNumber: number of threads set in opentext.ini for otcs
+    threadsNumber: 8
+  ## init container details
+  initContainers: []
+  # - name: DESIRED_NAME_FOR_INIT_CONTAINER
+  #   image:
+  #     source: IMAGE_SOURCE
+  #     name: IMAGE_NAME
+  #     tag: IMAGE_TAG
+  fluentbit:
+    enabled: false
+    image:
+      name: fluent/fluent-bit
+      source:
+      tag:
+    ## List the log types that need to be monitored by fluentbit.
+    ## logsToMonitor:
+    ## - security - will monitor security logs
+    ##            - Make sure security logs are enabled.
+    ##            - optionally enable securitylogs by setting otcs.config.enableSecurityLogs to true
+    ## eg: logsToMonitor: ["security"]
+    logsToMonitor: []
+
+########################################################################
+# OpenText Content Server database subchart:
+########################################################################
+otcs-db:
+  password:
+  image:
+    source:
+    name: postgres
+    tag:
+  serviceAccountName: default
+  resources:
+    enabled: true
+    requests:
+      cpu: 0.5
+      memory: 500m
+    limits:
+      cpu: 2
+      memory: 4Gi
+    storage: 1Gi
+    storageClassName: standard
+  ## enableLoadBalancer: enable load balancer to expose outside of kubernetes cluster
+  enableLoadBalancer: false
+  config:
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC
+
+########################################################################
+# OpenText Intelligent Viewing subchart:
+########################################################################
+otiv:
+  ingress:
+    enabled: false
+  otcs:
+    ## indicates whether otcs is internal to the k8s cluster that IV is running in and accessible at otcs.serviceUrl
+    inCluster: true
+    ## the internal k8s url that OTCS is accessible at; only relevant if otcs.inCluster is set to true
+    serviceUrl: http://otcs-frontend
+    secretName: otcs-secrets
+    secretKey:  ADMIN_USER_PASSWORD
+
+########################################################################
+# OpenText PowerDocs subchart:
+########################################################################
+otpd:
+  service:
+    # custom annotations that need to be assigned to otpd service.
+    annotations: []
+    # below is an example
+    # - "imageregistry: \"https://registry.opentext.com/\""
+  serviceType:
+  ## image.* defines Docker image location, tags and pull parameters for
+  ## PowerDocs:
+  image:
+    source:
+    name: otpd
+    tag:
+    pullPolicy: Always
+    pullSecret:
+  ## serviceName defines the name of the Kubernetes service for
+  ## PowerDocs:
+  serviceName: otpd
+  ## publicHostname defines the FQDN or IP address of the
+  ## Kubernetes Services of PowerDocs. If empty ("") the hostname
+  ## will dynamically be determined via the Kubernetes API.
+  publicHostname:
+  ## port is the external port the PowerDocs Kubernetes service
+  ## is reachable:
+  port: 8080
+  ## targetPort is the internal container port the Kubernetes service is
+  ## forwarding requests to.
+  targetPort: 8080
+  ## protocol: communication protocol - used in config map
+  protocol: http
+  ## hostname defines the hostname of the Kubernetes container for
+  ## PowerDocs (inside the stateful set definition):
+  hostname: otpd
+  ## admin defines the name of the PowerDocs Admin User (for Tomcat and PowerDocs apps)
+  admin: powerdocsadmin
+  ## adminPassword defines the PowerDocs Admin Password (for Tomcat and PowerDocs apps)
+  adminPassword:
+  ## user defines the name of the PowerDocs User in Tomcat
+  user: powerdocsuser
+  ## userPassword defines the PowerDocs User password
+  userPassword:
+  ## monitorUser defines the name of the PowerDocs User in Tomcat
+  monitorUser: powerdocsmonitoruser
+  ## monitorUserPassword defines the PowerDocs User password
+  monitorUserPassword:
+  otds:
+    ## admin is the name of the administrator user (login) for OTDS:
+    admin: admin
+    ## password is the name of the password of the administrator user
+    ## for OTDS:
+    password:
+  otcs:
+    enabled: true
+  config:
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC
+
+########################################################################
+# OpenText PowerDocs database subchart:
+########################################################################
+otpd-db:
+  ## port defines the database port of the PostgreSQL database:
+  port: 5432
+  ## user defines the database administration user of the
+  ## PostgreSQL database:
+  user: postgres
+  ## password defines the database administration password of the
+  ## PostgreSQL database:
+  password:
+  # mountPath defines the directory the persistent volume for
+  # the database is mounted to:
+  config:
+    ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+    ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+    ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+    ## software running in the container.
+    timeZone: Etc/UTC

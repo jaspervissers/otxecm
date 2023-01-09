@@ -1,0 +1,26 @@
+########################################################################
+# OpenText Archive Center Kubernetes Service
+########################################################################
+kind: Service
+apiVersion: v1
+metadata:
+  name: {{ .Values.serviceName }}-0
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  {{- if .Values.service.annotations }}
+  annotations:
+    {{- range .Values.service.annotations }}
+    {{ . }}
+    {{- end }}
+  {{- end }}
+spec:
+  type: NodePort
+  ports:
+  - name: {{ .Chart.Name }}
+    protocol: {{ .Values.portProtocol }}
+    port: {{ .Values.port }}
+    targetPort: {{ .Values.targetPort }}
+  selector:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+---

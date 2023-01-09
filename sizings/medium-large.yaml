@@ -1,0 +1,207 @@
+###############################################################################
+# Sizing for the following helm charts:
+# * Archive Center (otac)
+# * Core Archive Connector (otacc)
+# * Content Server (otcs)
+# * OTDS (otds)
+# * Intelligent Viewing (otiv)
+# * PowerDocs (otpd)
+# The sizing is for kubernetes pod CPU, memory, and storage.
+#
+# Usage example:
+# helm install --generate-name otxecm -f platforms/<platform>.yaml -f sizings/<size>.yaml
+#
+#################################################################################
+
+otac:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 6
+      memory: 14Gi
+    limits:
+      cpu: 6
+      memory: 14Gi
+  volumes:
+      storage:
+        ## bdv: location for buffer device
+        bdv: 9Gi
+        ## dv: location for device
+        dv: 1Gi
+        ## sd: volume where all archive data is stored.
+        ## Must be large enough to store all incoming documents.
+        sd: 1Gi
+        ## logs: volume where all logs files are stored.
+        logs: 4Gi
+      accessMode: ReadWriteOnce
+
+otacc:
+  resources:
+    requests:
+      cpu: 4
+      memory: 6Gi
+    limits:
+      cpu: 4
+      memory: 6Gi
+    ## logStorage defines the storage size for the logs volume
+    logStorage: 5Gi
+
+otcs:
+  ## storage defines storage size for volumes
+  config:
+    documentStorage:
+      efsStorage: 1Ti
+    search:
+      localSearch:
+        storage: 450Gi
+      sharedSearch:
+        storage: 850Gi
+  csPersist:
+    logStorage: 50Gi
+  contentServerFrontend:
+    threadsNumber: 12
+    replicas: 3
+    resources:
+      requests:
+        cpu: 6
+        memory: 12Gi
+      limits:
+        cpu: 6
+        memory: 12Gi
+  contentServerAdmin:
+    threadsNumber: 8
+    replicas: 1
+    resources:
+      requests:
+        cpu: 4
+        memory: 16Gi
+      limits:
+        cpu: 4
+        memory: 16Gi
+  contentServerBackendSearch:
+    threadsNumber: 8
+    replicas: 6
+    resources:
+      requests:
+        cpu: 4
+        memory: 11Gi
+      limits:
+        cpu: 4
+        memory: 11Gi
+
+otds:
+  otdsws:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 4
+        memory: 8Gi
+      limits:
+        cpu: 4
+        memory: 8Gi
+
+global:
+  nfsPersistenceSize: 40Gi
+
+otiv:
+  asset:
+    replicas: 3
+    resources:
+      enabled: true
+      requests:
+        cpu: 0.5
+        memory: 1.2Gi
+      limits:
+        cpu: 0.5
+        memory: 1.2Gi
+  config:
+    replicas: 3
+    resources:
+      enabled: true
+      requests:
+        cpu: 0.5
+        memory: 2.9Gi
+      limits:
+        cpu: 0.5
+        memory: 2.9Gi
+  highlight:
+    replicas: 3
+    resources:
+      enabled: true
+      requests:
+        cpu: 0.5
+        memory: 0.7Gi
+      limits:
+        cpu: 0.5
+        memory: 0.7Gi
+  publication:
+    replicas: 2
+    resources:
+      enabled: true
+      requests:
+        cpu: 1
+        memory: 3.7Gi
+      limits:
+        cpu: 1
+        memory: 3.7Gi
+  publisher:
+    replicas: 6
+    resources:
+      enabled: true
+      requests:
+        cpu: 1.5
+        memory: 2.5Gi
+      limits:
+        cpu: 1.5
+        memory: 2.5Gi
+  viewer:
+    replicas: 2
+    resources:
+      enabled: true
+      requests:
+        cpu: 0.5
+        memory: 0.7Gi
+      limits:
+        cpu: 0.5
+        memory: 0.7Gi
+  markup:
+    replicas: 2
+    resources:
+      enabled: true
+      requests:
+        cpu: 0.5
+        memory: 0.7Gi
+      limits:
+        cpu: 0.5
+        memory: 0.7Gi
+  amqp:
+    persistence:
+      size: 4Gi
+    replicas: 1
+    resources:
+      requests:
+        cpu: 2
+        memory: 4Gi
+      limits:
+        cpu: 2
+        memory: 4Gi
+  postgresql:
+    persistence:
+      size: 100Gi
+    resources:
+      requests:
+        cpu: 2
+        memory: 2Gi
+      limits:
+        cpu: 3
+        memory: 4Gi
+
+otpd:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 6
+      memory: 12Gi
+    limits:
+      cpu: 6
+      memory: 12Gi

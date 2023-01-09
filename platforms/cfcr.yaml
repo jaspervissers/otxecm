@@ -1,0 +1,250 @@
+########################################################################
+# Platform specific settings for Cloud Foundry Container Runtime
+#
+# IMPORTANT: do not change / remove the &anchors - just the values
+#            behind them - they are referenced with *anchor to avoid
+#            to change the same value in multiple places.
+# See otxecm/values.yaml for detailed description
+# of these values.
+########################################################################
+
+                                      # CHANGE HERE ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
+global:
+  ingressClass:         &ingress_class              nginx
+  ingressAnnotations:   &ingress_annotations
+    kubernetes.io/ingress.allow-http:               true
+    nginx.ingress.kubernetes.io/affinity:           cookie
+    ## 'proxy-body-size' controls the maximum request size. Specify a specific value to restrict request sizes.
+    nginx.ingress.kubernetes.io/proxy-body-size:    "0"
+    nginx.ingress.kubernetes.io/proxy-buffer-size:  "16k"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "1800"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($http_origin) {more_set_headers "Access-Control-Allow-Headers: $sent_http_access_control_allow_headers, X-XHR-Logon, X-Requested-With";}
+  ## ingressEnabled is normally enabled for production environments. If disabled, you can either deploy using
+  ## NodePort which is enabled by default or deploy using LoadBalancer
+  ## which is typically assigned a CNAME or static IP, depending on the kubernetes
+  ## platform. If you want to use NodePort without ingress, you must set serviceType below to NodePort
+  ## and ingress to false or if you want to deploy using LoadBalancer you must set serviceType to LoadBalancer
+  ## You must also set the xPublicUrl values below to an empty string "" in order to deploy Load balancer.
+  ingressEnabled:       &ingress_enabled            true
+  ingressSSLSecret:     &ingress_ssl_secret         xecm-secret
+  serviceType:          &service_type               NodePort
+  ## ingressDomainName is used to construct the ingress URLs for OTIV services
+  ## The value is equal to the portion of the otcsPublicUrl value minus the
+  ## https protocol and first DNS field (i.e. {otcsPublicUrl} - https://otcs.)
+  ingressDomainName:    &ingress_domain_name        example.com
+  otcsPublicUrl:        &otcs_public_url            https://otcs.example.com
+  otdsPublicUrl:        &otds_public_url            https://otds.example.com
+  otacPublicUrl:        &otac_public_url            https://otac.example.com
+  otaccPublicUrl:       &otacc_public_url           https://otacc.example.com
+  otpdPublicUrl:        &otpd_public_url            https://otpd.example.com
+  storageClassName:     &storage_class              trident-nfs
+  storageClassNameNFS:  &storage_class_nfs          trident-nfs
+  ## masterPassword: all other passwords will use this value, unless you change it in a specific
+  ## section. Custom values must use the OTDS password requirements of at least 8 characters, 1 upper
+  ## case, 1 lower case, 1 digit, 1 symbol.
+  ## For core archive (otacc) you need to specify a password for
+  ## otacc.connector.password and otcs.otac.coreArchive.password, as well as the username
+  ## in those sections
+  masterPassword:       &master_password
+  imageSource:          &image_source               registry.opentext.com
+  ## imageSourcePublic is the docker registry for retrieval of 3rd party docker images
+  imageSourcePublic:    &image_source_public        docker.io
+  imagePullSecret:      &image_pull_secret
+  imagePullPolicy:      &image_pull_policy          Always
+  resourceRequirements: &resource_requirements      true
+  serviceAccountName:   &service_account            default
+  ## existingSecret: An already existing kubernetes secret, which contains passwords.
+  ## If this is specified then the kubernetes secret will be preferred, and any provided password values will be ignored.
+  existingSecret:       &existing_secret
+  ## timeZone: This sets the time zone of the Linux OS within the container. The default value for
+  ## the timeZone is Etc/UTC. The value for the timeZone MUST be a CORRECT value from a trusted
+  ## source, otherwise unexpected behaviour will occur, this could have unforeseen repercussions for
+  ## software running in the container.
+  ## For a list of time zones, see https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  timeZone:             &time_zone                  Etc/UTC
+  # values for the otds helm chart. These are also used by the otxecm parent chart.
+  otds:
+    ## otdsUseReleaseName controls whether the release name is used in
+    ## the names of the objects.
+    otdsUseReleaseName: &otds_use_release_name      false
+    otdsws:
+      ## serviceName defines the hostname of the Kubernetes container for
+      ## OTDS (inside the stateful set definition):
+      serviceName: &service_name                    otds
+
+## The values below are for mapping the platform specific values above into the otxecm/values.yaml
+## in the Helm Chart - don't change anything below this line.  
+  
+  ## Admin Password for otiv database
+  database:
+    adminPassword: *master_password
+
+otds:
+  otdsUseReleaseName: *otds_use_release_name
+  otdsws:
+    image:
+      source: *image_source
+      pullSecret: *image_pull_secret
+      pullPolicy: *image_pull_policy
+    otdsUseReleaseName: *otds_use_release_name
+    serviceAccountName: *service_account
+    serviceType: *service_type
+    serviceName: *service_name
+    otadminPassword: *master_password
+    otdsdb:
+      password: *master_password
+    resources:
+      enabled: *resource_requirements
+    customSecretName: *existing_secret
+    timeZone: *time_zone
+    migration:
+      preUpgradeJob:
+        image:
+          source: *image_source_public
+
+otac:
+  image:
+    source: *image_source
+    pullSecret: *image_pull_secret
+    pullPolicy: *image_pull_policy
+  serviceAccountName: *service_account
+  resources:
+    enabled: *resource_requirements
+    storageClassName: *storage_class
+    storageClassNameRWX: *storage_class_nfs    
+  database:
+    password: *master_password
+    adminPassword: *master_password
+  otds:
+    password: *master_password
+  existingSecret: *existing_secret
+  config:
+    timeZone: *time_zone
+
+otac-db:
+  image:
+    source: *image_source_public
+  resources:
+    enabled: *resource_requirements
+    storageClassName: *storage_class
+  serviceAccountName: *service_account
+  password: *master_password
+  config:
+    timeZone: *time_zone
+  existingSecret: *existing_secret
+
+otcs:
+  passwords:
+    adminPassword: *master_password
+    baPassword: *master_password
+    appMonitorPassword: *master_password
+    scenarioOwnerPassword: *master_password
+    database:
+      adminPassword: *master_password
+      password: *master_password
+    otacc:
+      corePassword: *master_password
+  config:
+    url: *otcs_public_url
+    otds:
+      signInUrl: *otds_public_url
+      serverUrl: *otds_public_url
+    documentStorage:
+      efsStorageClassName: *storage_class_nfs
+    timeZone: *time_zone
+  ingress:
+    enabled: *ingress_enabled
+  serviceType: *service_type
+  image:
+    source: *image_source
+    pullSecret: *image_pull_secret
+    pullPolicy: *image_pull_policy
+  storageClassName: *storage_class
+  serviceAccountName: *service_account
+  contentServerAdmin:
+    resources:
+      enabled: *resource_requirements
+  contentServerFrontend:
+    resources:
+      enabled: *resource_requirements
+  contentServerBackendSearch:
+    resources:
+      enabled: *resource_requirements
+  existingSecret: *existing_secret
+  fluentbit:
+    image:
+      source: *image_source_public
+
+otcs-db:
+  image:
+    source: *image_source_public
+  resources:
+    enabled: *resource_requirements
+    storageClassName: *storage_class
+  serviceAccountName: *service_account
+  password: *master_password
+  config:
+    timeZone: *time_zone
+  existingSecret: *existing_secret
+
+otacc:
+  image:
+    source: *image_source
+  connector:
+    publicHostname: *otacc_public_url
+  resources:
+    storageClassName: *storage_class
+  existingSecret: *existing_secret
+
+otpd:
+  adminPassword: *master_password
+  userPassword: *master_password
+  monitorUserPassword: *master_password
+  apiUserPassword: *master_password
+  ingress:
+    enabled: *ingress_enabled
+    secret: *ingress_ssl_secret
+  serviceType: *service_type
+  publicHostname: *otpd_public_url
+  image:
+    source: *image_source
+    pullSecret: *image_pull_secret
+    pullPolicy: *image_pull_policy
+  serviceAccountName: *service_account
+  resources:
+    enabled: *resource_requirements
+    storageClassName: *storage_class
+  database:
+    adminPassword: *master_password
+    password: *master_password
+  otds:
+    password: *master_password
+    publicHostname: *otds_public_url
+  otcs:
+    password: *master_password
+    publicHostname: *otcs_public_url
+  config:
+    timeZone: *time_zone
+  existingSecret: *existing_secret
+
+otpd-db:
+  image:
+    source: *image_source_public
+  resources:
+    enabled: *resource_requirements
+    storageClassName: *storage_class
+  serviceAccountName: *service_account
+  password: *master_password
+  config:
+    timeZone: *time_zone
+  existingSecret: *existing_secret
+
+rabbitmq:
+  persistence:
+    storageClass: *storage_class
+
+preUpgradeJob:
+  image:
+    source: *image_source_public

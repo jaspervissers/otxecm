@@ -1,0 +1,5 @@
+apiVersion: v2
+appVersion: 22.3.2
+description: A Helm Chart for OpenText Core Archive Connector
+name: otacc
+version: 22.3.2

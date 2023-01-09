@@ -1,0 +1,144 @@
+{{- if and .Values.migration.enabled .Values.migration.preUpgradeJob.enabled }}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-job
+  labels:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      {{- if .Values.otdsdb.enableCustomizedTruststore }}    
+      initContainers:
+        - name: init-certs
+        {{- if .Values.image.source }}
+          {{- if (regexFind "\\/$" .Values.image.source ) }}
+          image: {{ printf "%s%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+          {{- else }}
+          image: {{ printf "%s/%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+          {{- end }}
+        {{- else }}
+          image: {{ printf "%s:%s" $.Values.image.name $.Values.image.tag | quote }}
+        {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          name: init-certs
+          command:
+          - /bin/bash
+          - -ec
+          - |-
+            if [[ -f "$JAVA_HOME/lib/security/cacerts" ]]; then
+                cp "$JAVA_HOME/lib/security/cacerts" "/opt/config/truststore/truststore.jks"
+            else
+                echo "Couldn't find the expected CA truststore files! They are mandatory when encryption via TLS is enabled."
+                exit 1
+            fi
+            if [[ -f "/opt/config/certificates/dbRootCA.crt" ]]; then
+                keytool -import -file "/opt/config/certificates/dbRootCA.crt" \
+                          -keystore "/opt/config/truststore/truststore.jks" \
+                          -storepass "changeit" \
+                          -noprompt
+            else
+                echo "Couldn't find /opt/config/certificates/dbRootCA.crt! Please mount the certs volume."
+                exit 1
+            fi            
+          volumeMounts:
+          {{- if .Values.otdsdb.sslDBRootCert }}          
+          - name: {{ template "otdsws.name" . }}-certs-volume
+            mountPath: /opt/config/certificates
+          {{- end }}          
+          - name: {{ template "otdsws.name" . }}-truststore-volume
+            mountPath: /opt/config/truststore          
+      {{- end }}    
+      volumes:
+{{- if and .Values.migration.enabled .Values.migration.usingLegacyImage }}      
+        - name: {{ template "otdsws.name" . }}-data-volume
+          persistentVolumeClaim:
+            claimName: {{ .Values.migration.legacyImagePVC }}
+{{- end }}            
+{{- if .Values.otdsdb.sslDBRootCert }}      
+        - name: {{ template "otdsws.name" . }}-certs-volume
+          secret:
+            secretName: {{ template "otdsws.name" . }}-certs   
+{{- end }}
+{{- if .Values.otdsdb.enableCustomizedTruststore}}
+        - name: {{ template "otdsws.name" . }}-truststore-volume
+          emptyDir: {}     
+{{- end }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      containers:
+      - name: opendj-migrate
+        envFrom:
+        - configMapRef:
+            name: migrate-job-configmap
+{{- if not .Values.customSecretName }}
+        - secretRef:
+            name: migrate-job-secrets
+{{- end }}
+{{- if .Values.customSecretName }}
+        env:
+        - name: OTDS_JAKARTA_PERSISTENCE_JDBC_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.customSecretName }}
+              key: OTDS_JAKARTA_PERSISTENCE_JDBC_PASSWORD           
+{{- end }}            
+{{- if eq .Values.migration.enabled true }}
+        volumeMounts:
+{{- if eq .Values.migration.usingLegacyImage true }}
+          - name: {{ template "otdsws.name" . }}-data-volume
+            mountPath: /opt/otds
+{{- end }}
+{{- else }}
+        volumeMounts:
+{{- end }}
+        {{- if .Values.otdsdb.sslDBRootCert }}        
+          - name: {{ template "otdsws.name" . }}-certs-volume
+            mountPath: /opt/config/certificates
+        {{- end }}
+        {{- if .Values.otdsdb.enableCustomizedTruststore}}
+          - name: {{ template "otdsws.name" . }}-truststore-volume
+            mountPath: /opt/config/truststore
+        {{- end }}
+{{- if .Values.image.source }}
+    {{- if (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ printf "%s%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+    {{- else }}
+        image: {{ printf "%s/%s:%s" $.Values.image.source $.Values.image.name $.Values.image.tag | quote }}
+    {{- end }}
+{{- else }}
+        image: {{ printf "%s:%s" $.Values.image.name $.Values.image.tag | quote }}
+{{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: opendj-migrate
+        command:
+            - /bin/bash
+            - -ec
+            - |
+              echo "start migration";
+              /opt/scripts/startTomcat.sh job;
+              until [ -f /opt/tomcat/logs/completed.log ]; do echo Waiting for migrate-job completed...; sleep 3; done;
+{{- if eq .Values.resources.enabled true }}
+        resources:
+          limits:
+            cpu: {{ .Values.migration.preUpgradeJob.resources.limits.cpu }}
+            memory: {{ .Values.migration.preUpgradeJob.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.migration.preUpgradeJob.resources.requests.cpu }}
+            memory: {{ .Values.migration.preUpgradeJob.resources.requests.memory }}
+{{- end }}
+        ports:
+        - containerPort: {{ .Values.targetPort }}
+      hostname: {{ .Values.hostname }}
+{{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecret }}
+{{- end }}
+
+{{- end }}

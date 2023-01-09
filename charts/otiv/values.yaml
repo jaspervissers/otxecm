@@ -1,0 +1,565 @@
+# Default values for IV
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+ingress:
+  enabled: true
+
+global:
+  ## specifies the storage class (ReadWriteOnce) to use for postgresql (non-production) amqp storage
+  #  if nothing is specified after &storageClassName, the default storage class for the cluster is used;
+  #    specify a value after to change from default, e.g.: storageClassName: &storageClassName trident-nfs
+  storageClassName: &storageClassName  
+  ## specifies the storage class (ReadWriteMany required) to use for IV published artifacts
+  #  if no value is specified, the default storage class for the cluster is used
+  storageClassNameNFS: 
+  # size of NFS storage to allocate for IV published artifacts
+  nfsPersistenceSize: 20Gi
+
+  ## the public web protocol to access services; valid values are https or http
+  publicWebProtocol: &publicWebProtocol https
+
+
+  ## database host and user by config, publication, publisher, and markup services
+  database:
+    hostname: &db_host pg-otiv
+    port:     &db_port 5432
+    ivName:   &db_name otiv
+    ## Database name that psql initially connects with prior to command execution
+    adminDatabase: postgres
+    adminUsername: &db_user postgres
+    # set to true if database is configured for SSL communication
+    ssl: false
+    # if above ssl property is true, the specified ssl mode will be used
+    #  valid values are (in ascending order of security) -> prefer, require, verify-ca, verifyfull
+    sslMode: prefer
+
+  # http/https calls to the access source documents are routed through the proxy if the host
+  #  and port properties are set, and the url is not specified in the excludes property
+  proxy:
+    ## proxy hostname or IP. If username/password required, format is username:password@some.proxy.net
+    host: 
+    port: 3128
+    # list can be either | or , delimited, i.e.  "10.*|192.168.*|otds|*.company.net"
+    # IP and DNS entries to internal k8s services should be included in the excludes list
+    excludes: "10.*|otds"
+
+  ## messaging host and user by the publication and publisher services
+  msgHost: &msg_host otiv-amqp
+  msgUser: &msg_user user
+
+  otdsSecretName: otdsws-secrets
+  otdsSecretKey: OTDS_DIRECTORY_BOOTSTRAP_INITIALPASSWORD
+
+  dbSecretName: otcs-secrets
+  dbSecretKey: DB_ADMIN_PASSWORD
+
+  logOutput: stdout
+
+  ## hazelcast port
+  hazelport: 5701
+
+  imageBaseTag: &image_base_tag 22.3
+
+  ## the domain name used to construct the ingress URLs
+  ingressDomainName: example.com
+
+  # determines if the ingress hostname includes the namespace in its name;
+  #  set to true if OTIV being deployed to multiple namespaces within a cluster
+  ingressIncludeNamespace: false
+
+  # Note that recent nginx ingress controllers define an ingress class of "public"
+  ingressClass: nginx
+  # if ingress is an https end-point, create a secret with certificate and private key and set
+  #   the following property with the name of the secret, i.e. ingressSSLSecret: otiv-tls-secrets
+  #   Setting a value for this secret prevents the ingress endpoints from receiving http traffic
+  ingressSSLSecret: 
+  ingressAnnotations: 
+    nginx.ingress.kubernetes.io/affinity: cookie
+
+  ## the default docker registry where the OTIV docker images are stored
+  ##   can be overridden by per service by setting <service>.image.source
+  imageSource: registry.opentext.com
+
+  ## the default pull policy for images; can be overridden by per service by setting <service>.image.pullPolicy
+  imagePullPolicy: Always
+
+  ## name of the secret needed to pull from docker registry
+  imagePullSecret: 
+
+  ## the url of the OTDS server; if not defined, defaults to otds-<namespace>.<ingressDomainName>
+  #      note that '-<namespace>' isn't included if global.ingressIncludeNamespace is false
+  otdsPublicUrl: 
+
+  ## defaults to the publicWebProtocol; if different, set explicitly i.e. otdsWebProtocol: http
+  #   this property is only relevant if otdsPublicUrl has not been set
+  otdsWebProtocol: *publicWebProtocol
+
+  ## indicates if otds is accessible via the k8s network; if set to false, global.otdsPublicUrl is used
+  otdsInCluster: true
+
+  ## the k8s url that OTDS is accessible at; only relevant if otdsInCluster is set to true
+  ## if property is not set, defaults to the otds service name for the cluster
+  otdsPrivateUrl: 
+
+
+  # number of minutes viewer, highlight, and markup services will wait before updating cert from OTDS
+  otdsCertUpdateInterval: 1440
+
+  # if there's a need to redeploy ALL otiv containers, modify the following value before running a helm upgrade
+  counter: 1
+
+  resourceGuid: 4b9fb208-5a47-4585-97bd-7f38b4cc3d12
+  # the resource name associated with the IV license; defaults to 'iv' if not set
+  resourceName: 
+
+  # If set to true, Forwarded/X-Forwarded-Host header whitelist enforcement is enabled
+  #   and the services validate that the Forwarded/X-Forwarded-* headers adhere to what's 
+  #   allowed by the forwardedHostsList or forwardedHostsRegex properties.
+  #
+  # If set to true and the forwardedHostsList and forwardedHostsRegex are not defined 
+  #    or have been defined with an invalid syntax, the services will fail to start.
+  # If both of these properties are configured, forwardedHostsRegex takes precedence.
+  # The Forwarded/X-Forwarded-Host headers in incoming requests that do not match the
+  #    properties whitelist criteria are ignored.
+  # If these properties are defined at the service level (i.e. publication.forwardedHostsList),
+  #   the service level definition takes precedence
+  enforceForwardedHosts: false
+
+  # a comma-separated list of FQDNs (cannot specify protocols such as https) that are used
+  #   for validating the Forwarded/X-Forwarded-* headers.
+  forwardedHostsList:
+
+  # a regex pattern to match FQDNs
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character, e.g.: .*site.sample.*
+  forwardedHostsRegex:
+
+  # If set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  # If these properties are defined at service level (i.e. publication.corsOriginList),
+  #   the service level definition takes precedence
+  enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  corsOriginsRegex:
+
+  # List of additional custom http headers, comma-separated, that will be allowed by IV services
+  customHttpHeaders:
+
+  otdsInit:
+    image:
+      name: otiv-init-otds
+      tag: *image_base_tag
+
+  newRelic:
+    # new relic license key
+    licenseKey: 
+
+    # new relic base app name
+    # Each service prepends its service name to the new relic app name
+    # if empty, defaults to global.ingressDomainName
+    baseAppName: 
+
+    # new relic proxy host
+    host: 
+
+    # new relic proxy port
+    port: 3128
+
+  # Should be set to true if using a service mesh like istio which uses envy sidecar
+  #    containers; this technology doesn't allow communication from init containers
+  # if false, init containers are used to perform database and OTDS initialization
+  # if true, jobs are used to do this initialization. Service pods will generally
+  #   restart several times before successfully getting to a ready state
+  usingServiceMesh: false
+
+  # The range of IPs for the k8s API server. Used when istio sidecars are used and may
+  #   be blocking communication to the kubernetes API.
+  k8sApiIPRanges: 10.0.0.0/32,172.0.0.0/32
+
+  # The range of IPs for the transformation services. Required so that IP communication 
+  #   within these services can occur in istio's PeerAuthentication strict mode.
+  transformationPodApiIPRanges: 10.0.0.0/32
+
+  # time zone that the containers are set to (sets TZ env var). If not set,
+  #   containers will use UTC. Values should be set to a "TZ database name"
+  #   from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  # If an invalid value is entered, the time zone defaults to UTC
+  timeZone:
+
+  # These properties take a comma delimited set of origins, i.e. http(s)://<hostname><:port>
+  #   where source files to be converted are allowed to be retrieved from.
+  # If neither trustedSourceOrigins nor trustedSourceOriginsAnonymous is set, then there is
+  #   no origin restriction and IV attempts to retrieve source files from the requested
+  #   file url; however, if the file url is at an http endpoint (as opposed to https), no
+  #   Authorization header is sent with the request.
+  # If either property is defined, then retrievals are restricted to the defined origins.
+  # Origins defined in trustedSourceOrigins will pass along an Authorization header,
+  #   whereas origins defined in trustedSourceOriginsAnonymous won't include an 
+  #   Authorization header. The same origin should not be listed in both properties.
+  trustedSourceOrigins:
+  trustedSourceOriginsAnonymous:
+
+  otds:
+    otdsUseReleaseName: false
+    otdsws:
+      serviceName: otds
+
+  ## List additional pod labels for all otiv pods
+  ## eg:
+  ## otivPodLabels:
+  ##   app.kubernetes.io/app_name: otiv
+  otivPodLabels: {}
+
+amqp:
+  enabled: true
+  image:
+    name: otiv-amqp
+    tag: *image_base_tag
+
+  ## String to fully override amqp.fullname template
+  ## This value needs to match global.msgHost in this chart
+  fullnameOverride: *msg_host
+
+  persistence:
+    size: 1Gi  
+    storageClass: *storageClassName
+
+  rabbitmq:
+    password: test
+
+  ## List additional pod labels for amqp pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: amqp
+  podLabels: {}
+
+## The following properties are for the sub-charts.
+#   Note that the *.image.tag properties refer to "latest"
+#   It's recommended that the when installing/upgrading this helm chart
+#   that either the following tags are updated with a specific version, or 
+#   that a yaml file with the specific versions is provided as a -f parameter
+#   to the helm install/upgrade command.  The latestTags.yaml which has specific
+#   versions is distributed along with this helm chart. Using specific versions
+#   provides clarity on the version being used, and can avoid issues with a
+#   docker registry server that may be providing an older cached version of 
+#   the "latest"
+
+## publication service settings
+publication:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  service:
+    port: &publication_port 80
+  # potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+  loglevel:
+    example: DEBUG
+    #expiry: DEBUG
+    #hazelCast: ERROR
+    #migrator: DEBUG
+    #netty: DEBUG
+    #service: DEBUG
+    #spi: DEBUG
+    #spiAjira: DEBUG
+    #spiMkondo: DEBUG
+    #spiSoteria: DEBUG
+    #spiPithos: DEBUG
+    #system: DEBUG
+    #util: DEBUG
+    #vertx: DEBUG
+    #vertxHost: DEBUG
+
+  # if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  # If not defined here, corresponding global property values are used
+  #enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  #corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  #corsOriginsRegex:
+
+  # number of seconds the publication service waits for a HEAD response for
+  #  accessing the source document; may want to increase for slow connections
+  accessCheckTimeoutSeconds: 3  
+
+  ## List additional pod labels for publication pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: publication
+  podLabels: {}
+
+## asset service settings
+asset:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+# potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+  loglevel:
+    example: DEBUG
+    #artifacts: DEBUG
+    #hazelCast: DEBUG
+    #netty: DEBUG
+    #system: DEBUG
+    #vertx: DEBUG
+    #vertxWebHandler: DEBUG
+
+  # if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  # If not defined here, corresponding global property values are used
+  #enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  #corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  #corsOriginsRegex:
+
+  publication:
+    port: *publication_port
+
+  ## List additional pod labels for asset pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: asset
+  podLabels: {}
+
+## highlight service settings
+highlight:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  # 40 -> ERROR; 30 -> INFO; 20 -> DEBUG; 10 -> TRACE
+  loglevel: 30
+  # fatal, error, warn, info, debug, trace
+  newRelic:
+    loglevel: debug
+
+  # if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  # If not defined here, corresponding global property values are used
+  #enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  #corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  #corsOriginsRegex:
+
+  # If set, the NODE_OPTIONS env variable will be set with the value
+  nodeOptions: 
+
+  publication:
+    port: *publication_port
+
+  ## List additional pod labels for highlight pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: highlight
+  podLabels: {}
+
+## markup service settings
+markup:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  # 50 -> ERROR; 40 -> WARN; 30 -> INFO; 20 -> DEBUG; 10 -> TRACE
+  loglevel: 30
+
+  # fatal, error, warn, info, debug, trace
+  newRelic:
+    loglevel: debug
+
+  # The maximum number of SQL connections in the markup service pool; value must be greater than 0
+  dbMaxPoolSize: 10
+
+  # if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  # If not defined here, corresponding global property values are used
+  #enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  #corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  #corsOriginsRegex:
+
+  # If set, the NODE_OPTIONS env variable will be set with the value
+  nodeOptions: 
+
+  service:
+    port: &markup_port 80
+
+  # If true, requires an integrator provided JWT to authorize access to markups
+  enableRoleBasedAccessControl: true
+
+  # string used for generating a key to sign access control JWT
+  jwtSecret:
+
+  ## List additional pod labels for markup pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: markup
+  podLabels: {}
+
+## viewer service settings
+viewer:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  # 50 -> ERROR; 40 -> WARN; 30 -> INFO; 20 -> DEBUG; 10 -> TRACE
+  loglevel: 30
+  # fatal, error, warn, info, debug, trace
+  newRelic:
+    loglevel: debug
+
+  # if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+  #  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+  #enforceCorsOrigins: false
+
+  # a comma-separated list of servers that OTIV services will allow origin requests from
+  # each origin should start with https:// or http://
+  #corsOriginsList:
+
+  # a regex pattern for servers that OTIV services will allow origin requests from
+  # The metacharacter * is a modifier and matches the preceding character 0 or more times;
+  #  so * needs to be after another character; typically this will be the metacharacter . (dot)
+  #  which represents any single character. The expression needs to match a url that can begin
+  #  with http. An example value would be: .*site.sample.*
+  #corsOriginsRegex:
+
+  # If set, the NODE_OPTIONS env variable will be set with the value
+  nodeOptions: 
+
+  ## List additional pod labels for viewer pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: viewer
+  podLabels: {}
+
+## publisher settings
+publisher:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  markup:
+    port: *markup_port
+
+  # set to true to add write_any_markups scope to the iv-publisher OAuth client
+  #   this enables the publishing agent to create or update markups
+  writeMarkups: true
+
+# potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+  loglevel:
+    example: DEBUG
+    #artifacts: DEBUG
+    #config: DEBUG
+    #conversion: DEBUG
+    #converter: DEBUG
+    #converterHost: DEBUG
+    #discovery: DEBUG
+    #metrics: DEBUG
+    #netty: DEBUG
+    #retrieval: DEBUG
+    #sequencing: DEBUG
+    #spi: DEBUG
+    #spiAjira: DEBUG
+    #spiMkondo: DEBUG
+    #spiPithos: DEBUG
+    #spiSoteria: DEBUG
+    #system: DEBUG
+    #util: DEBUG
+    #vertx: DEBUG
+    #zmq: DEBUG
+
+  ## List additional pod labels for publisher pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: publisher
+  podLabels: {}
+
+## config service settings
+config:
+  enabled: true
+
+  image:
+    tag: *image_base_tag
+
+  # potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+  loglevel:
+    example: DEBUG
+    #hazelCast: ERROR
+    #migrator: DEBUG
+    #netty: DEBUG
+    #service: DEBUG
+    #spi: DEBUG
+    #spiSoteria: DEBUG
+    #spiPithos: DEBUG
+    #system: DEBUG
+    #util: DEBUG
+    #vertx: DEBUG
+
+  ## List additional pod labels for config pods
+  ## eg:
+  ## podLabels:
+  ##   app.kubernetes.io/app_name: config
+  podLabels: {}
+
+otcs:
+  ## CS uri path; Defaults to -> /cs/cs
+  csUriPath: "/cs/cs"
+  ## the internal k8s URLs that the IV services are accessible at; only relevant if otcs.inCluster is set to true
+  publicationServiceUrl: http://otiv-publication
+  highlightServiceUrl: http://otiv-highlight
+  viewerServiceUrl: http://otiv-viewer
+  markupServiceUrl: http://otiv-markup
+  assetServiceUrl: http://otiv-asset
+  # The Content Server resource name; the scripts adds the publisher oauth client to the associated access role
+  # Defaults to -> cs
+  #csResourceName: Content Server
+  combined: true
+

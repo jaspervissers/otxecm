@@ -1,0 +1,114 @@
+# Default values for publication.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicas: 1
+
+image:
+  name: otiv-publication
+
+#command: '[ "tail",  "-f",  "/dev/null" ]'
+
+enableAccessCache: true
+
+# potential loglevel values: ERROR, WARN, INFO, DEBUG, TRACE
+loglevel:
+  example: DEBUG
+  #expiry: DEBUG
+  #hazelCast: DEBUG
+  #migrator: DEBUG
+  #netty: DEBUG
+  #service: DEBUG
+  #spi: DEBUG
+  #spiAjira: DEBUG
+  #spiMkondo: DEBUG
+  #spiSoteria: DEBUG
+  #spiPithos: DEBUG
+  #system: DEBUG
+  #util: DEBUG
+  #vertx: DEBUG
+  #vertxHost: DEBUG
+  
+
+service:
+  type: ClusterIP
+  albType: NodePort
+  port: 80
+  targetPort: 9091
+
+resources:
+  enabled: false
+  requests:
+    cpu: 200m
+    memory: 0.5Gi
+  limits:
+    cpu: 1
+    memory: 1.5Gi
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 400
+  timeoutSeconds: 2
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 90
+  timeoutSeconds: 1
+  periodSeconds: 15
+  failureThreshold: 3
+
+## Available as of kubernetes version 1.16
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 30
+  timeoutSeconds: 2
+  periodSeconds: 10
+  failureThreshold: 7
+
+
+ingress:
+  enabled: true
+
+
+# number of seconds the publication service waits for a HEAD response for
+#  accessing the source document; may want to increase for slow connections
+accessCheckTimeoutSeconds: 3  
+
+# If set to true, Forwarded/X-Forwarded-Host header whitelist enforcement is enabled
+#   and the services validate that the Forwarded/X-Forwarded-* headers adhere to what's 
+#   allowed by the forwardedHostsList or forwardedHostsRegex properties.
+#
+# If set to true and the forwardedHostsList and forwardedHostsRegex are not defined 
+#    or have been defined with an invalid syntax, the services will fail to start.
+# If both of these properties are configured, forwardedHostsRegex takes precedence.
+# The Forwarded/X-Forwarded-Host headers in incoming requests that do not match the
+#    properties whitelist criteria are ignroed.
+# If not defined here, corresponding global property values are used
+#enforceForwardedHosts: false
+
+# a comma seperated list of FQDNs (cannot specify protocols such as https) that are used
+#   for validating the Forwarded/X-Forwarded-* headers.
+#forwardedHostsList:
+
+# a regex pattern to match FQDNs
+# The metacharacter * is a modifier and matches the preceeding character 0 or more times;
+#  so * needs to be after another character; typically this will be the metacharacter . (dot)
+#  which represents any single character, e.g.: .*site.sample.*
+#forwardedHostsRegex:
+
+# if set to true, requests will be only be accepted from the servers listed in corsOriginsList
+#  or corsOriginsRegex; if both are defined, corsOriginRegex has precedence
+# If not defined here, corresponding global property values are used
+#enforceCorsOrigins: false
+
+# a comma seperated list of servers that OTIV services will allow origin requests from
+# each origin should start with https:// or http://
+#corsOriginsList:
+
+# a regex pattern for servers that OTIV services will allow origin requests from
+# The metacharacter * is a modifier and matches the preceeding character 0 or more times;
+#  so * needs to be after another character; typically this will be the metacharacter . (dot)
+#  which represents any single character. An example value would be: .*site.sample.*
+#corsOriginsRegex:

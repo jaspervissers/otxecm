@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "base.resource.name" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "publisher.name" . }}
+    helm.sh/chart: {{ include "publisher.chart" . }}
+    app.kubernetes.io/instance: {{ include "base.resource.name" . }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ include "base.resource.name" . }}
+      app.kubernetes.io/name: {{ include "publisher.name" . }}
+      app.kubernetes.io/instance: {{ include "base.resource.name" . }}
+      hazel: brava
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include "config.secret.checksum" . }}
+      labels:
+        app: {{ include "base.resource.name" . }}
+        app.kubernetes.io/name: {{ include "publisher.name" . }}
+        app.kubernetes.io/instance: {{ include "base.resource.name" . }}
+        hazel: brava
+        {{- include "otiv.custom.labels" . }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      serviceAccountName: otiv-asecret-sa
+    {{- if not .Values.global.usingServiceMesh }}
+      initContainers:
+      {{ template "init.otds.container" . }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ include "image.source.path" . }}
+          imagePullPolicy: {{ include "image.pull.policy" . }}
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+          - name: hazelcast
+            containerPort: {{ .Values.global.hazelport }}
+          - name: http
+            containerPort: {{ .Values.service.targetPort }}
+            protocol: TCP
+          env:
+          {{ include "env.secrets" .Chart.Name }}
+          {{ template "pg.rb.env.passwords" .Values }}
+          - name: VERTX_CLUSTER_HOST
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: RESOURCE
+            valueFrom:
+              secretKeyRef:
+                name: otiv-resource-secret
+                key: resource
+          envFrom:
+          - configMapRef:
+              name: {{ include "base.resource.name" . }}-configmap
+        {{- if .Values.resources.enabled }}
+          resources:
+            limits:
+              cpu: {{ .Values.resources.limits.cpu }}
+              memory: {{ .Values.resources.limits.memory }}
+            requests:
+              cpu: {{ .Values.resources.requests.cpu }}
+              memory: {{ .Values.resources.requests.memory }}
+        {{- end }}
+        {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /publisher/api/v1/health/live
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /publisher/api/v1/health/ready
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        {{- end }}
+        {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /publication/api/v1/version
+              port: http
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+        {{- end }}
+          {{- if .Values.command }}
+          command: {{ .Values.command }}
+          {{- end }}
+          volumeMounts:
+          - mountPath: /var/mkondo/fs-0
+            name: bas-data
+    {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.global.imagePullSecret }}
+    {{- end }}
+      volumes:
+        - name: bas-data
+          persistentVolumeClaim:
+            claimName: otiv-bas

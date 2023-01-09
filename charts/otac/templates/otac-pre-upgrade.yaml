@@ -1,0 +1,87 @@
+# Pre-upgrade job definition for OTAC Container
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $.Chart.Name }}-pre-upgrade-job
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    # "helm.sh/hook-delete-policy": hook-succeeded
+spec:
+  template:
+    spec:
+      securityContext:
+        ## The fsGroup field specifies that group ID {{ .Values.fsGroup }} is associated
+        ## with all Containers in the Pod. Group ID {{ .Values.fsGroup }} is also
+        ## associated with the mounted volumes and with any files created
+        ## in that volume.
+        ## This will make volumes be mounted with {{ .Values.fsGroup }} group permissions.
+        fsGroup: {{ .Values.fsGroup }}
+      ## serviceAccountName defines the name of the service account the
+      ## pods are running under. Normally that is 'default'
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      
+      containers:
+      - name:  {{ $.Chart.Name }}-pre-upgrade-container
+{{- if not (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ required "A valid image.source is required!" .Values.image.source }}/{{ required "A valid image.name is required!" .Values.image.name }}:{{ required "A valid image.tag is required!" .Values.image.tag }}
+{{- else }}
+        image: {{ required "A valid image.source is required!" .Values.image.source }}{{ required "A valid image.name is required!" .Values.image.name }}:{{ required "A valid image.tag is required!" .Values.image.tag }}
+{{- end }}
+        command: ["/bin/bash"]
+        args: ["-c", "/opt/opentext/shell_scripts/update_script.sh > /opt/opentext/logs/update_script.log"]
+{{- if eq (len (lookup "v1" "PersistentVolumeClaim" .Release.Namespace "otac-otac-0")) 0 }}
+        volumeMounts:
+        - mountPath: /opt/opentext/archive_center/ac_config
+          name: config 
+          readOnly: false
+        - mountPath: /opt/opentext/logs
+          name: logs
+          readOnly: false
+      restartPolicy: Never
+
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ $.Chart.Name }}-config
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ $.Chart.Name }}-logs-{{ $.Chart.Name }}-0
+{{- else }}
+        volumeMounts:
+        - mountPath: /opt/opentext/archive_center/ac_config
+          name: config 
+          readOnly: false
+        - mountPath: /opt/opentext/ac
+          name: {{ $.Chart.Name }}-old
+          readOnly: false
+        - mountPath: /opt/opentext/logs
+          name: logs
+          readOnly: false
+      restartPolicy: Never
+
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: {{ $.Chart.Name }}-config
+        - name: logs
+          persistentVolumeClaim:
+            claimName: {{ $.Chart.Name }}-logs-{{ $.Chart.Name }}-0
+        - name: {{ $.Chart.Name }}-old
+          persistentVolumeClaim:
+            claimName: {{ $.Chart.Name }}-{{ $.Chart.Name }}-0
+{{- end }}
+---
+
+# Pre-Upgrade hook for setting upgrade parameters
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $.Chart.Name }}-pre-upgrade-configmap
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-weight": "-1"
+#    "helm.sh/hook-delete-policy": before-hook-creation, hook-succeeded
+data:
+   isUpgrade: "true"
+---

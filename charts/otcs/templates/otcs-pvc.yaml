@@ -1,0 +1,50 @@
+{{- if eq .Values.config.documentStorage.type "efs" }}
+########################################################################
+# EFS persistent volume claim for OpenText Content Server
+# There are matching volume mount and volume '{{ .Chart.Name }}-efs'
+# in the file otcs-statefulsets.yaml
+########################################################################
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-efs
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteMany
+{{- if .Values.config.documentStorage.efsStorageClassName }}
+  storageClassName: {{ .Values.config.documentStorage.efsStorageClassName | quote }}
+{{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.config.documentStorage.efsStorage }}
+---
+{{- end }}
+{{- if eq .Values.config.search.sharedSearch.enabled true }}
+########################################################################
+# Search shared persistent volume claim for OpenText Content Server
+# This must use a RWX (ReadWriteMany) storage class
+# There is a matching volumeClaimTemplate
+# 'otcs-shared-admin-index' in the otcs StatefulSet.
+# otcs-statefulsets.yaml
+########################################################################
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Chart.Name }}-admin-index-shared
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  storageClassName: {{ .Values.config.search.sharedSearch.storageClassName }}
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ .Values.config.search.sharedSearch.storage }}
+---
+{{- end }}

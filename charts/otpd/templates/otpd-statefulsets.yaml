@@ -1,0 +1,105 @@
+########################################################################
+# OpenText PowerDocs Kuberntes Stateful Sets
+########################################################################
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app.kubernetes.io/component: {{ .Chart.Name }}
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  serviceName: {{ .Values.serviceName }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        ## The fsGroup field specifies that group ID {{ .Values.fsGroup }} is associated
+        ## with all Containers in the Pod. Group ID {{ .Values.fsGroup }} is also
+        ## associated with the mounted volumes and with any files created
+        ## in that volume.
+        ## This will make volumes be mounted with {{ .Values.fsGroup }} group permissions.
+        fsGroup: {{ .Values.fsGroup }}
+      ## serviceAccountName defines the name of the service account the
+      ## pods are running under. Normally that is 'default'
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      containers:
+      - envFrom:
+        - configMapRef:
+            name: {{ .Chart.Name }}-configmap
+        - secretRef:
+            {{- if .Values.existingSecret }}
+            name: {{ .Values.existingSecret }}
+            {{- else }}
+            name: {{ .Chart.Name }}-secrets
+            {{- end }}
+{{- if not (regexFind "\\/$" .Values.image.source ) }}
+        image: {{ .Values.image.source }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+{{- else }}
+        image: {{ .Values.image.source }}{{ .Values.image.name }}:{{ .Values.image.tag }}
+{{- end }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: {{ .Chart.Name }}
+{{- if eq .Values.readinessProbe.enabled true }}
+        readinessProbe:
+            exec:
+              command:
+                - "/opt/opentext/scripts/bash/check_otpd_readiness.sh"
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+{{- end }}
+{{- if eq .Values.livenessProbe.enabled true }}
+        livenessProbe:
+            exec:
+              command:
+                - "/opt/opentext/scripts/bash/check_otpd_liveness.sh"
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+{{- end }}
+{{- if eq .Values.resources.enabled true }}
+        resources:
+          limits:
+            cpu: {{ .Values.resources.limits.cpu }}
+            memory: {{ .Values.resources.limits.memory }}
+          requests:
+            cpu: {{ .Values.resources.requests.cpu }}
+            memory: {{ .Values.resources.requests.memory }}
+{{- end }}
+        ports:
+        - containerPort: {{ .Values.targetPort }}
+        volumeMounts:
+{{- range .Values.volumes }}
+        - mountPath: {{ .mountPath }}
+          name: {{ $.Chart.Name }}-{{ .name }}
+{{- end }}
+      hostname: {{ .Values.hostname }}
+{{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+      - name: {{ .Values.image.pullSecret }}
+{{- end }}
+  volumeClaimTemplates:
+{{- range .Values.volumes }}
+  - metadata:
+      name: {{ $.Chart.Name }}-{{ .name }}
+    spec:
+      accessModes:
+      - {{ .accessMode | default "ReadWriteOnce" }}
+{{- if $.Values.resources.storageClassName }}
+      storageClassName: {{ $.Values.resources.storageClassName | quote }}
+{{- end }}
+      resources:
+        requests:
+          storage: {{ .storage }}
+{{- end }}
+---

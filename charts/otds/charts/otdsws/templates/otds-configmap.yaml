@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "otdsws.name" . }}-configmap
+{{- if .Values.global.namespace }}
+  namespace: {{ .Values.global.namespace }}
+{{- end }}
+  labels:
+    {{- include (printf "%s%s" .Chart.Name ".labels" ) . | nindent 4 }}
+
+data:
+  OTDS_JAKARTA_PERSISTENCE_JDBC_USER: {{ .Values.otdsdb.username }}
+  OTDS_JAKARTA_PERSISTENCE_JDBC_URL: {{ template "otdsws.dburl" . }}
+{{- if eq .Values.migration.enabled true }}
+{{- if .Values.migration.preUpgradeJob.enabled }}
+  OTDS_MIGRATE: "false"
+{{- else }}
+  OTDS_MIGRATE: "true"
+{{- end }}  
+{{- if eq .Values.migration.usingLegacyImage true }}
+  LEGACY_OPENDJ: "true"
+{{- else }}
+{{- if .Values.migration.opendjUri }}
+  OTDS_DIRECTORY_BOOTSTRAP_SERVERLIST: {{ .Values.migration.opendjUri }}
+{{- else }}
+  OTDS_DIRECTORY_BOOTSTRAP_SERVERLIST: {{ printf "ldap://%s" .Values.migration.serviceName }}:{{ .Values.migration.servicePort }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.additionalJavaOpts }}
+  CATALINA_OPTS: {{ .Values.additionalJavaOpts }}
+{{- end }}
+{{- if .Values.jvmMemory }}
+  JVM_MEMORY: {{ .Values.jvmMemory }}
+{{- else }}
+{{- if eq .Values.resources.enabled true }}
+{{- if .Values.resources.limits.memory }}
+  JVM_MEMORY: {{ .Values.resources.limits.memory }}
+  JVM_MEMORY_DETECTED: "true"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if .Values.ingress.prependPath }}
+  APP_PATH: {{ .Values.ingress.prependPath }}
+{{- end }}
+{{- if eq .Values.carrierGradeNAT true }}
+  CARRIER_GRADE_NAT: "true"
+{{- end }}
+  SAPSYSTEMCLIENT: "001"
+  SAPSYSTEMNAME: OTX
+{{- if .Values.newrelic.NEW_RELIC_LICENSE_KEY }}
+{{ toYaml .Values.newrelic | indent 2 }}
+{{- end }}
+  TZ: {{ .Values.timeZone }}
+{{- if eq .Values.statefulSet true }}  
+  OTDS_DIRECTORY_BOOTSTRAP_ENABLEES: "true"
+{{- else }}
+  OTDS_DIRECTORY_BOOTSTRAP_ENABLEES: "false"
+{{- end }}
+---
